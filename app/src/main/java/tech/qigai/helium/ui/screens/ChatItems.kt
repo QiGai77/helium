@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -32,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -43,6 +45,7 @@ import tech.qigai.helium.agent.AgentEvent
 import tech.qigai.helium.agent.GrantScope
 import tech.qigai.helium.agent.Risk
 import tech.qigai.helium.agent.ToolCall
+import tech.qigai.helium.agent.search.SearchFormat
 import tech.qigai.helium.data.db.ConversationEntity
 import tech.qigai.helium.data.llm.Role
 import tech.qigai.helium.ui.components.ButtonKind
@@ -59,7 +62,7 @@ sealed interface ChatItem {
     val key: String
 
     data class User(override val key: String, val text: String) : ChatItem
-    data class Assistant(override val key: String, val message: ChatMessage) : ChatItem
+    data class Assistant(override val key: String, val message: ChatMessage, val sources: List<Pair<String, String>> = emptyList()) : ChatItem
     data class Step(override val key: String, val call: ToolCall?, val observation: AgentEvent.ToolObservation) : ChatItem
     data class Approval(override val key: String, val request: AgentEvent.ApprovalRequest, val decision: AgentEvent.ApprovalDecision?) : ChatItem
 }
@@ -68,19 +71,25 @@ fun chatItems(events: List<AgentEvent>): List<ChatItem> {
     val calls = HashMap<String, ToolCall>()
     val decisions = events.filterIsInstance<AgentEvent.ApprovalDecision>().associateBy { it.requestId }
     val out = ArrayList<ChatItem>(events.size)
+    // Sources from this turn's web_search calls, attached to the turn's final answer as citation chips.
+    val turnSources = LinkedHashMap<String, String>()
     events.forEachIndexed { i, e ->
         when (e) {
-            is AgentEvent.UserMessage -> out += ChatItem.User("u$i", e.text)
+            is AgentEvent.UserMessage -> { turnSources.clear(); out += ChatItem.User("u$i", e.text) }
             is AgentEvent.AssistantMessage -> {
                 e.toolCalls.forEach { calls[it.id] = it }
                 if (e.text.isNotBlank() || e.reasoning.isNotBlank() || e.error != null || e.stopped) {
                     out += ChatItem.Assistant(
                         "a$i",
                         ChatMessage(i.toLong(), Role.ASSISTANT, e.text, e.reasoning, false, e.error, e.stopped, e.model, ChatViewModel.localTime(e.at)),
+                        sources = if (e.toolCalls.isEmpty() && e.text.isNotBlank()) turnSources.map { (url, title) -> title to url }.take(8) else emptyList(),
                     )
                 }
             }
-            is AgentEvent.ToolObservation -> out += ChatItem.Step("o$i", calls[e.callId], e)
+            is AgentEvent.ToolObservation -> {
+                if (e.tool == "web_search" && !e.isError) SearchFormat.sources(e.output).forEach { (title, url) -> turnSources.putIfAbsent(url, title) }
+                out += ChatItem.Step("o$i", calls[e.callId], e)
+            }
             is AgentEvent.ApprovalRequest -> out += ChatItem.Approval("r$i", e, decisions[e.requestId])
             is AgentEvent.ApprovalDecision -> Unit
         }
@@ -93,6 +102,7 @@ fun toolLabel(name: String, arguments: String?): String {
     val args = runCatching { JSONObject(arguments ?: "{}") }.getOrDefault(JSONObject())
     return when (name) {
         "get_current_time" -> "查看当前时间"
+        "web_search" -> "搜索「${args.optString("query").take(20)}」"
         "web_fetch" -> "读取网页 " + runCatching { java.net.URI(args.optString("url")).host }.getOrNull().orEmpty()
         "memory_search" -> "查找记忆「${args.optString("query").take(16)}」"
         "memory_save" -> "保存记忆「${args.optString("text").take(16)}」"
@@ -236,5 +246,41 @@ fun HistoryDialog(
             title = { Text("删除这个对话？") },
             text = { Text("「${c.title}」和其中的所有步骤会被永久删除。") },
         )
+    }
+}
+
+
+/** Citation chips under an answer that used web_search, in the spirit of chat-demo's source list. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun SourceChips(sources: List<Pair<String, String>>) {
+    val uri = LocalUriHandler.current
+    FlowRow(
+        Modifier.fillMaxWidth().padding(start = 4.dp, top = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        sources.forEachIndexed { i, (title, url) ->
+            val host = runCatching { java.net.URI(url).host?.removePrefix("www.") }.getOrNull().orEmpty()
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(HeColors.Mist2)
+                    .clickable { runCatching { uri.openUri(url) } }
+                    .padding(horizontal = 10.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("${i + 1}", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = HeColors.Accent)
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    host.ifBlank { title },
+                    fontSize = 12.sp,
+                    color = HeColors.Ink2,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.widthIn(max = 160.dp),
+                )
+            }
+        }
     }
 }

@@ -1,0 +1,14 @@
+name = "helium-cloud"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Secrets (set with `wrangler secret put NAME`, never committed):
+#   HELIUM_TOKENS      comma-separated device tokens the app sends as `Authorization: Bearer <token>`
+#   DEEPSEEK_API_KEY   enables /v1/tools/search, /v1/tools/fetch and /llm/deepseek/*
+#   OPENCODE_API_KEY   enables /llm/opencode-go/*
+#   GEMINI_API_KEY     enables /llm/gemini/*
+#   EXA_API_KEY        optional; raises Exa limits on /mcp/exa (works keyless without it)
+
+[vars]
+RATE_PER_MINUTE = "120"

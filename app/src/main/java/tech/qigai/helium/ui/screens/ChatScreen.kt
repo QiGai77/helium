@@ -159,7 +159,10 @@ fun ChatScreen(
             items(items, key = { it.key }) { item ->
                 when (item) {
                     is ChatItem.User -> UserBubble(item.text)
-                    is ChatItem.Assistant -> AssistantMessage(item.message, onRetry = vm::retryLast, onOpenModels = onOpenModels)
+                    is ChatItem.Assistant -> Column {
+                        AssistantMessage(item.message, onRetry = vm::retryLast, onOpenModels = onOpenModels)
+                        if (item.sources.isNotEmpty()) SourceChips(item.sources)
+                    }
                     is ChatItem.Step -> ToolStepRow(item)
                     is ChatItem.Approval -> InlineApproval(
                         item,

@@ -28,6 +28,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,6 +50,7 @@ import tech.qigai.helium.data.llm.ModelCatalog
 import tech.qigai.helium.data.llm.ProviderId
 import tech.qigai.helium.data.llm.WireApi
 import tech.qigai.helium.data.settings.LlmSettings
+import tech.qigai.helium.data.settings.SearchProviderId
 import tech.qigai.helium.data.settings.SettingsRepository
 import tech.qigai.helium.ui.components.ButtonKind
 import tech.qigai.helium.ui.components.GlassIcon
@@ -61,7 +63,7 @@ import tech.qigai.helium.ui.theme.HeButton
 import tech.qigai.helium.ui.theme.HeColors
 import tech.qigai.helium.ui.theme.HeShapes
 
-private enum class KeyDialog { NONE, OPENCODE, GEMINI, CUSTOM, OPENCODE_MODEL, GEMINI_MODEL }
+private enum class KeyDialog { NONE, OPENCODE, GEMINI, CUSTOM, OPENCODE_MODEL, GEMINI_MODEL, DEEPSEEK, CLOUD }
 
 /** 10 模型与推理 — OpenCode Go (default) / Gemini API / 自带 OpenAI 兼容. Keys go to the Keystore vault. */
 @Composable
@@ -70,6 +72,7 @@ fun ModelsScreen(settings: LlmSettings, repo: SettingsRepository, onBack: () -> 
     var loading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val client = remember { LlmClient() }
+    val search by repo.search.collectAsState()
 
     Column(Modifier.fillMaxSize()) {
         SubTopBar("模型与推理", onBack)
@@ -184,6 +187,61 @@ fun ModelsScreen(settings: LlmSettings, repo: SettingsRepository, onBack: () -> 
                     Modifier.fillMaxWidth(), ButtonKind.TONAL, HeIcons.Plus, HeButton.Medium,
                 )
             }
+            Spacer(Modifier.height(28.dp))
+
+            // ---- 联网搜索 (web_search tool backend)
+            Text("联网搜索", fontSize = 17.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, color = HeColors.Ink)
+            Spacer(Modifier.height(4.dp))
+            Text("Agent 调用 web_search 时使用的搜索服务", fontSize = 13.sp, color = HeColors.Ink2)
+            Spacer(Modifier.height(12.dp))
+            ProviderCard(
+                icon = HeIcons.Search,
+                title = "Exa",
+                selected = search.provider == SearchProviderId.EXA_MCP,
+                tags = listOf("默认" to TagKind.ACCENT, "免费" to TagKind.MINT),
+                desc = "公共 MCP 接口，无需 Key；其他服务不可用时也会自动回退到这里",
+                onSelect = { repo.setSearchProvider(SearchProviderId.EXA_MCP) },
+            ) {}
+            Spacer(Modifier.height(12.dp))
+            ProviderCard(
+                icon = HeIcons.Globe,
+                title = "DeepSeek 搜索",
+                selected = search.provider == SearchProviderId.DEEPSEEK,
+                tags = listOf((if (search.deepSeekReady) "已配置" else "未配置") to (if (search.deepSeekReady) TagKind.MINT else TagKind.NEUTRAL)),
+                desc = when {
+                    search.cloudConfigured -> "经 Helium Cloud 调用，Key 存在服务器 · 每千次约 \$0.75"
+                    search.hasDeepSeekKey -> "直连 api.deepseek.com · 每千次约 \$0.75"
+                    else -> "中文结果更好，按次计费（每千次约 \$0.75）；需要 DeepSeek Key 或 Helium Cloud"
+                },
+                onSelect = {
+                    if (!search.deepSeekReady) dialog = KeyDialog.DEEPSEEK
+                    repo.setSearchProvider(SearchProviderId.DEEPSEEK)
+                },
+            ) {
+                if (!search.cloudConfigured) {
+                    HePillButton(
+                        if (search.hasDeepSeekKey) "更换 DeepSeek API Key" else "填入 DeepSeek API Key",
+                        { dialog = KeyDialog.DEEPSEEK },
+                        Modifier.fillMaxWidth(), ButtonKind.OUTLINE, HeIcons.Key, HeButton.Medium,
+                    )
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            ProviderCard(
+                icon = HeIcons.Server,
+                title = "Helium Cloud",
+                selected = search.cloudConfigured,
+                tags = listOf((if (search.cloudConfigured) "已连接" else "可选") to (if (search.cloudConfigured) TagKind.MINT else TagKind.NEUTRAL)),
+                desc = if (search.cloudConfigured) search.cloudUrl else "你自己的 Cloudflare Worker：Key 放服务器，手机直连不通时走它中转",
+                onSelect = { dialog = KeyDialog.CLOUD },
+            ) {
+                HePillButton(
+                    if (search.cloudConfigured) "编辑" else "连接 Worker",
+                    { dialog = KeyDialog.CLOUD },
+                    Modifier.fillMaxWidth(), ButtonKind.TONAL, HeIcons.Plug, HeButton.Medium,
+                )
+            }
+
             Spacer(Modifier.height(20.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                 Icon(HeIcons.Lock, null, tint = HeColors.Ink2, modifier = Modifier.size(16.dp))
@@ -222,6 +280,24 @@ fun ModelsScreen(settings: LlmSettings, repo: SettingsRepository, onBack: () -> 
             if (it != null && it.isNotBlank()) repo.setGeminiModel(it)
             dialog = KeyDialog.NONE
         }
+        KeyDialog.DEEPSEEK -> SecretDialog(
+            title = "DeepSeek API Key",
+            hint = "在 platform.deepseek.com 创建。只用于 api.deepseek.com/v1/tools/search。",
+            hasExisting = search.hasDeepSeekKey,
+            onDismiss = { dialog = KeyDialog.NONE },
+            onSave = { repo.setDeepSeekKey(it); repo.setSearchProvider(SearchProviderId.DEEPSEEK); dialog = KeyDialog.NONE; toast("已保存到凭据保险箱") },
+            onClear = { repo.setDeepSeekKey(null); dialog = KeyDialog.NONE },
+        )
+        KeyDialog.CLOUD -> CloudDialog(
+            url = search.cloudUrl,
+            hasToken = search.hasCloudToken,
+            onDismiss = { dialog = KeyDialog.NONE },
+            onSave = { url, token ->
+                repo.setCloud(url, if (url.isBlank()) "" else token.ifBlank { null })
+                dialog = KeyDialog.NONE
+                toast(if (url.isBlank()) "已断开 Helium Cloud" else "已保存")
+            },
+        )
         KeyDialog.CUSTOM -> CustomDialog(
             settings = settings,
             onDismiss = { dialog = KeyDialog.NONE },
@@ -384,5 +460,32 @@ private fun CustomDialog(settings: LlmSettings, onDismiss: () -> Unit, onSave: (
             ) { Text("保存") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+    )
+}
+
+
+@Composable
+private fun CloudDialog(url: String, hasToken: Boolean, onDismiss: () -> Unit, onSave: (String, String) -> Unit) {
+    var base by remember { mutableStateOf(url) }
+    var token by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Helium Cloud") },
+        text = {
+            Column {
+                Text("填你部署的 Worker 地址和设备令牌（HELIUM_TOKENS 里的一项）。留空地址即断开。", fontSize = 13.sp, color = HeColors.Ink2)
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(base, { base = it }, singleLine = true, label = { Text("Worker 地址") }, placeholder = { Text("https://cloud.qigai.tech") }, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    token, { token = it }, singleLine = true,
+                    label = { Text(if (hasToken) "设备令牌（留空保持不变）" else "设备令牌") },
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = { TextButton({ onSave(base.trim(), token.trim()) }) { Text("保存") } },
+        dismissButton = { TextButton(onDismiss) { Text("取消") } },
     )
 }
