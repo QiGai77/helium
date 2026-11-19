@@ -1,0 +1,183 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="412" height="892" viewBox="0 0 412 892" fill="none">
+<title>03 · Run timeline · Helium v0.3</title>
+<defs>
+<filter id="shadow-1B2150-6-6-12" x="-30%" y="-30%" width="160%" height="180%" color-interpolation-filters="sRGB"><feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#1B2150" flood-opacity="0.06"/></filter>
+<linearGradient id="lg-progress" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#6E83EF"/><stop offset="0.6" stop-color="#3ABCD4"/><stop offset="1" stop-color="#4BC9A0"/></linearGradient>
+<linearGradient id="lg-progress-gloss" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="7"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.55"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+<filter id="shadow-6E83EF-25-3-4" x="-30%" y="-30%" width="160%" height="180%" color-interpolation-filters="sRGB"><feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#6E83EF" flood-opacity="0.25"/></filter>
+<filter id="shadow-4F6BFF-22-2-3" x="-30%" y="-30%" width="160%" height="180%" color-interpolation-filters="sRGB"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#4F6BFF" flood-opacity="0.22"/></filter>
+<filter id="shadow-4F6BFF-25-0-6" x="-30%" y="-30%" width="160%" height="180%" color-interpolation-filters="sRGB"><feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#4F6BFF" flood-opacity="0.25"/></filter>
+<linearGradient id="lg-th-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#B0CCE7"/><stop offset="1" stop-color="#7690BC"/></linearGradient>
+<linearGradient id="lg-th-room" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F0E9E0"/><stop offset="1" stop-color="#DCD0C1"/></linearGradient>
+<linearGradient id="lg-th-suite" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E6D9C8"/><stop offset="1" stop-color="#C2A78E"/></linearGradient>
+</defs>
+<g id="background">
+<rect id="canvas" width="412" height="892" fill="#F4F5FB"/>
+<g id="bg-orbs">
+
+</g>
+<g id="bg-particles">
+<circle cx="214.7" cy="634.4" r="1.5" fill="#9AA0B4" fill-opacity="0.18"/>
+<circle cx="311.4" cy="561.4" r="1.5" fill="#4F6BFF" fill-opacity="0.18"/>
+<circle cx="106.6" cy="640.4" r="2" fill="#9AA0B4" fill-opacity="0.25"/>
+<circle cx="261.6" cy="547.3" r="2" fill="#4F6BFF" fill-opacity="0.18"/>
+</g>
+</g>
+<g id="status-bar">
+<text id="time" x="24" y="30" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="15" font-weight="600" fill="#12131A">9:41</text>
+<g id="signal" transform="translate(314 15)">
+<rect x="0" y="9" width="3" height="4" rx="1" fill="#12131A"/><rect x="4.5" y="6" width="3" height="7" rx="1" fill="#12131A"/><rect x="9" y="3" width="3" height="10" rx="1" fill="#12131A"/><rect x="13.5" y="0" width="3" height="13" rx="1" fill="#12131A"/>
+</g>
+<g id="wifi" transform="translate(337 15.5)">
+<path d="M8 13.5L0.4 4.8A11.5 11.5 0 0 1 15.6 4.8Z" fill="#12131A"/>
+</g>
+<g id="battery" transform="translate(361 16)">
+<rect x=".5" y=".5" width="23" height="12" rx="3.5" stroke="#12131A" stroke-opacity=".45"/><rect x="2.5" y="2.5" width="17" height="8" rx="1.8" fill="#12131A"/><rect x="24.5" y="4" width="1.8" height="5" rx=".9" fill="#12131A" fill-opacity=".45"/>
+</g>
+</g>
+<g id="top-app-bar">
+<g id="btn-back" transform="translate(16 56)">
+<g id="btn">
+<circle cx="20" cy="20" r="20" fill="#FFFFFF" filter="url(#shadow-1B2150-6-6-12)"/>
+<circle cx="20" cy="20" r="19.5" stroke="#E6E8F0"/>
+<g id="icon-arrow-left" transform="translate(8 8) scale(1)" stroke="#12131A" color="#12131A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M19 12H5M11 6l-6 6 6 6"/></g>
+</g>
+</g>
+<g id="btn-more" transform="translate(356 56)">
+<g id="btn-2">
+<circle cx="20" cy="20" r="20" fill="#FFFFFF" filter="url(#shadow-1B2150-6-6-12)"/>
+<circle cx="20" cy="20" r="19.5" stroke="#E6E8F0"/>
+<g id="icon-more" transform="translate(8 8) scale(1)" stroke="#12131A" color="#12131A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M12 5.5h.01M12 12h.01M12 18.5h.01" stroke-width="3"/></g>
+</g>
+</g>
+</g>
+<g id="header">
+<text id="title" x="24" y="140" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="32" font-weight="700" fill="#12131A">东京行程规划</text>
+<text id="subtitle" x="24" y="170" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="15" font-weight="400" fill="#5A5F73" style="font-variant-numeric: tabular-nums; font-variation-settings: 'ROND' 100">代理执行中 · 已完成 3/6</text>
+</g>
+<g id="progress" transform="translate(24 192)">
+<rect width="364" height="12" rx="6" fill="#F0F2F8"/>
+<rect x=".5" y=".5" width="363" height="11" rx="5.5" stroke="#E6E8F0"/>
+<rect width="182" height="12" rx="6" fill="url(#lg-progress)" filter="url(#shadow-6E83EF-25-3-4)"/>
+<rect x="4" y="2" width="174" height="4" rx="2" fill="url(#lg-progress-gloss)"/>
+</g>
+<g id="rail">
+<rect x="51" y="264" width="2" height="472" rx="1" fill="#DDE0EA"/>
+<rect x="51" y="264" width="2" height="312" rx="1" fill="#4F6BFF"/>
+</g>
+<g id="nodes">
+<g id="node-1-done">
+<circle cx="52" cy="264" r="13" fill="#4F6BFF" filter="url(#shadow-4F6BFF-22-2-3)"/>
+<g id="icon-check" transform="translate(44 256) scale(0.67)" stroke="#FFFFFF" color="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M5 12.5l4.5 4.5L19 7.5"/></g>
+</g>
+<g id="node-2-done">
+<circle cx="52" cy="368" r="13" fill="#4F6BFF" filter="url(#shadow-4F6BFF-22-2-3)"/>
+<g id="icon-check-2" transform="translate(44 360) scale(0.67)" stroke="#FFFFFF" color="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M5 12.5l4.5 4.5L19 7.5"/></g>
+</g>
+<g id="node-3-done">
+<circle cx="52" cy="496" r="13" fill="#4F6BFF" filter="url(#shadow-4F6BFF-22-2-3)"/>
+<g id="icon-check-3" transform="translate(44 488) scale(0.67)" stroke="#FFFFFF" color="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M5 12.5l4.5 4.5L19 7.5"/></g>
+</g>
+<g id="node-4-running">
+<rect x="37" y="561" width="30" height="30" rx="10" fill="#FFFFFF" filter="url(#shadow-4F6BFF-25-0-6)"/>
+<rect x="37.75" y="561.75" width="28.5" height="28.5" rx="9.25" stroke="#4F6BFF" stroke-width="1.5"/>
+<rect x="46" y="570" width="12" height="12" rx="4" fill="#4F6BFF"/>
+</g>
+<g id="node-5-waiting">
+<circle cx="52" cy="656" r="15" fill="#F4F5FB"/>
+<circle cx="52" cy="656" r="12" fill="#FFFFFF" stroke="#FFC53D" stroke-width="2.5"/>
+</g>
+<g id="node-6-future">
+<rect x="42" y="726" width="20" height="20" rx="6" fill="#D5D9E4"/>
+</g>
+</g>
+<g id="step-1-done" transform="translate(96 232)">
+<rect id="step-bg-bg" width="292" height="88" rx="20" fill="#FFFFFF" filter="url(#shadow-1B2150-6-6-12)"/>
+<rect x="0.5" y="0.5" width="291" height="87" rx="19.5" stroke="#E6E8F0" stroke-width="1"/>
+<text x="20" y="34" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="16" font-weight="600" fill="#12131A">搜索航班</text>
+<text x="272" y="33" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="13" font-weight="500" fill="#5A5F73" text-anchor="end" style="font-variant-numeric: tabular-nums; font-variation-settings: 'ROND' 100">21:02</text>
+<g id="chip-results" transform="translate(20 46)">
+<rect width="70" height="28" rx="14.0" fill="#F0F2F8"/>
+<text x="35" y="18.32" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="12" font-weight="500" fill="#5A5F73" text-anchor="middle">3 个结果</text>
+</g>
+<g id="chip-price" transform="translate(98 46)">
+<rect width="89" height="28" rx="14.0" fill="#F0F2F8"/>
+<text x="44.5" y="18.32" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="12" font-weight="600" fill="#12131A" text-anchor="middle">最低 ¥2,180</text>
+</g>
+</g>
+<g id="step-2-done" transform="translate(96 336)">
+<rect id="step-bg-bg-2" width="292" height="112" rx="20" fill="#FFFFFF" filter="url(#shadow-1B2150-6-6-12)"/>
+<rect x="0.5" y="0.5" width="291" height="111" rx="19.5" stroke="#E6E8F0" stroke-width="1"/>
+<text x="20" y="34" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="16" font-weight="600" fill="#12131A">比较酒店价格</text>
+<text x="272" y="33" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="13" font-weight="500" fill="#5A5F73" text-anchor="end" style="font-variant-numeric: tabular-nums; font-variation-settings: 'ROND' 100">21:10</text>
+<g id="thumb-hotel-1" transform="translate(20 48)">
+<rect width="48" height="48" rx="12" fill="url(#lg-th-sky)"/>
+<rect x="6" y="10" width="14" height="24" rx="2" fill="#E9DFD1"/>
+<rect x="28" y="6" width="14" height="28" rx="2" fill="#DCCFBD"/>
+<rect x="0" y="32" width="48" height="16" fill="#4FB3C0"/>
+<path d="M0 48h48V36c-8 3-16-3-24 0S8 39 0 36z" fill="#359CB1"/>
+</g>
+<g id="thumb-hotel-2" transform="translate(76 48)">
+<rect width="48" height="48" rx="12" fill="url(#lg-th-room)"/>
+<rect x="30" y="8" width="12" height="14" rx="2" fill="#FFFFFF" fill-opacity=".8"/>
+<rect x="6" y="26" width="36" height="14" rx="3" fill="#FFFFFF"/>
+<rect x="6" y="22" width="12" height="6" rx="3" fill="#F2EEE8"/>
+<rect x="6" y="36" width="36" height="6" rx="2" fill="#BCA58A"/>
+</g>
+<g id="thumb-hotel-3" transform="translate(132 48)">
+<rect width="48" height="48" rx="12" fill="url(#lg-th-suite)"/>
+<rect x="4" y="6" width="16" height="18" rx="2" fill="#F6EFE6" fill-opacity=".8"/>
+<rect x="10" y="28" width="34" height="12" rx="3" fill="#FFFFFF"/>
+<rect x="10" y="36" width="34" height="6" rx="2" fill="#83654F"/>
+</g>
+<text x="272" y="76" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="13" font-weight="500" fill="#5A5F73" text-anchor="end" style="font-variant-numeric: tabular-nums; font-variation-settings: 'ROND' 100">已比 12 家</text>
+<text x="272" y="94" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="12" font-weight="400" fill="#9AA0B4" text-anchor="end" style="font-variant-numeric: tabular-nums; font-variation-settings: 'ROND' 100">均价 ¥1,050/晚</text>
+</g>
+<g id="step-3-done" transform="translate(96 464)">
+<rect id="step-bg-bg-3" width="292" height="64" rx="20" fill="#FFFFFF" filter="url(#shadow-1B2150-6-6-12)"/>
+<rect x="0.5" y="0.5" width="291" height="63" rx="19.5" stroke="#E6E8F0" stroke-width="1"/>
+<text x="20" y="38" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="16" font-weight="600" fill="#12131A">读取日历空档</text>
+<text x="272" y="37" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="13" font-weight="500" fill="#5A5F73" text-anchor="end" style="font-variant-numeric: tabular-nums; font-variation-settings: 'ROND' 100">21:18</text>
+</g>
+<g id="step-4-run" transform="translate(96 544)">
+<rect id="step-bg-bg-4" width="292" height="64" rx="20" fill="#FFFFFF" filter="url(#shadow-1B2150-6-6-12)"/>
+<rect x="0.75" y="0.75" width="290.5" height="62.5" rx="19.25" stroke="#4F6BFF" stroke-width="1.5"/>
+<text x="20" y="38" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="16" font-weight="600" fill="#12131A">生成每日行程</text>
+<g id="tag-running" transform="translate(204 20)">
+<rect width="68" height="24" rx="12.0" fill="#ECEEFF"/>
+<circle cx="15" cy="12.0" r="3.5" fill="#4F6BFF"/>
+<text x="22" y="16.32" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="12" font-weight="600" fill="#4F6BFF">进行中</text>
+</g>
+</g>
+<g id="step-5-wait" transform="translate(96 624)">
+<rect id="step-bg-bg-5" width="292" height="64" rx="20" fill="#FFFFFF" filter="url(#shadow-1B2150-6-6-12)"/>
+<rect x="0.5" y="0.5" width="291" height="63" rx="19.5" stroke="#E6E8F0" stroke-width="1"/>
+<circle cx="24" cy="32" r="4" fill="#FFC53D"/>
+<text x="38" y="38" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="16" font-weight="600" fill="#12131A">等待你审批</text>
+<g id="btn-review" transform="translate(192 14)">
+<rect width="80" height="36" rx="18.0" fill="#12131A"/>
+<text x="40" y="22.68" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="13" font-weight="500" fill="#FFFFFF" text-anchor="middle">去审批</text>
+</g>
+</g>
+<g id="step-6-future" transform="translate(96 704)">
+<rect x=".75" y=".75" width="290.5" height="62.5" rx="19.25" fill="#FFFFFF" fill-opacity=".45" stroke="#D3D7E3" stroke-width="1.5" stroke-dasharray="5 5"/>
+<text x="20" y="38" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="16" font-weight="600" fill="#9AA0B4">预订机票与酒店</text>
+<text x="272" y="37" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="13" font-weight="500" fill="#9AA0B4" text-anchor="end">未开始</text>
+</g>
+<g id="action-bar" transform="translate(86 792)">
+<rect width="240" height="64" rx="32" fill="#FFFFFF" filter="url(#shadow-1B2150-6-6-12)"/>
+<rect x=".5" y=".5" width="239" height="63" rx="31.5" stroke="#E6E8F0"/>
+<g id="btn-pause" transform="translate(8 8)">
+<rect width="104" height="48" rx="24.0" fill="#F0F2F8"/>
+<g id="icon-pause" transform="translate(23 14) scale(0.83)" stroke="#12131A" color="#12131A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M9 6v12M15 6v12"/></g>
+<text x="51" y="29.4" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="15" font-weight="500" fill="#12131A">暂停</text>
+</g>
+<g id="btn-details" transform="translate(120 8)">
+<rect x=".5" y=".5" width="111" height="47" rx="23.5" fill="#FFFFFF" stroke="#CDD1DE"/>
+<text x="56" y="29.4" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="15" font-weight="500" fill="#12131A" text-anchor="middle">查看详情</text>
+</g>
+</g>
+<g id="gesture-bar">
+<rect x="152.0" y="878" width="108" height="4" rx="2" fill="#12131A" fill-opacity=".85"/>
+</g>
+</svg>

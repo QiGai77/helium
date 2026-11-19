@@ -1,0 +1,420 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="412" height="1554" viewBox="0 0 412 1554" fill="none">
+<title>09 · 我的 · Helium v0.3</title>
+<defs>
+<filter id="shadow-1B2150-6-6-12" x="-30%" y="-30%" width="160%" height="180%" color-interpolation-filters="sRGB"><feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#1B2150" flood-opacity="0.06"/></filter>
+<linearGradient id="lg-base-aurora" x1="0" y1="0.1" x2="1" y2="0.9"><stop offset="0" stop-color="#455FEA"/><stop offset="0.52" stop-color="#A894F3"/><stop offset="1" stop-color="#28A2B8"/></linearGradient>
+<filter id="shadow-A894F3-18-10-16" x="-30%" y="-30%" width="160%" height="180%" color-interpolation-filters="sRGB"><feDropShadow dx="0" dy="10" stdDeviation="16" flood-color="#A894F3" flood-opacity="0.18"/></filter>
+<radialGradient id="rg-374BE9-81"><stop offset="0" stop-color="#374BE9" stop-opacity="0.81"/><stop offset="1" stop-color="#374BE9" stop-opacity="0"/></radialGradient>
+<filter id="blur-17" x="-60%" y="-60%" width="220%" height="220%" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="17"/></filter>
+<radialGradient id="rg-BBA9F5-77"><stop offset="0" stop-color="#BBA9F5" stop-opacity="0.77"/><stop offset="1" stop-color="#BBA9F5" stop-opacity="0"/></radialGradient>
+<radialGradient id="rg-239EB9-81"><stop offset="0" stop-color="#239EB9" stop-opacity="0.81"/><stop offset="1" stop-color="#239EB9" stop-opacity="0"/></radialGradient>
+<radialGradient id="rg-6F7CEF-51"><stop offset="0" stop-color="#6F7CEF" stop-opacity="0.51"/><stop offset="1" stop-color="#6F7CEF" stop-opacity="0"/></radialGradient>
+<radialGradient id="rg-FFFFFF-16"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.16"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+<linearGradient id="lg-sweep-364x120" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="182.0" y2="61.0"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0"/><stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0.18"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+<filter id="blur-6" x="-60%" y="-60%" width="220%" height="220%" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="6"/></filter>
+<filter id="grain" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="7" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1.4 -.55"/></filter>
+<clipPath id="clip-364x120r28"><rect width="364" height="120" rx="28"/></clipPath>
+<linearGradient id="lg-rim-120" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="120"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.7"/><stop offset="0.35" stop-color="#FFFFFF" stop-opacity="0.18"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0.08"/></linearGradient>
+<linearGradient id="lg-glass-base" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E9ECF5"/></linearGradient>
+<filter id="shadow-1B2150-8-2-3" x="-30%" y="-30%" width="160%" height="180%" color-interpolation-filters="sRGB"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#1B2150" flood-opacity="0.08"/></filter>
+<radialGradient id="rg-glass-acc-4F6BFF"><stop offset="0" stop-color="#4F6BFF" stop-opacity="0.16"/><stop offset="1" stop-color="#4F6BFF" stop-opacity="0"/></radialGradient>
+<linearGradient id="lg-glass-hl-36" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="36"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.95"/><stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0.2"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+<filter id="blur-2" x="-60%" y="-60%" width="220%" height="220%" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="2"/></filter>
+</defs>
+<g id="background">
+<rect id="canvas" width="412" height="1554" fill="#F4F5FB"/>
+<g id="bg-orbs">
+
+</g>
+<g id="bg-particles">
+<circle cx="374.2" cy="1363.4" r="1" fill="#4F6BFF" fill-opacity="0.25"/>
+<circle cx="175.8" cy="788.3" r="1.25" fill="#4F6BFF" fill-opacity="0.25"/>
+<circle cx="184.1" cy="363.7" r="2" fill="#4F6BFF" fill-opacity="0.18"/>
+<circle cx="42.0" cy="1035.6" r="2" fill="#4F6BFF" fill-opacity="0.25"/>
+</g>
+</g>
+<g id="status-bar">
+<text id="time" x="24" y="30" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="15" font-weight="600" fill="#12131A">9:41</text>
+<g id="signal" transform="translate(314 15)">
+<rect x="0" y="9" width="3" height="4" rx="1" fill="#12131A"/><rect x="4.5" y="6" width="3" height="7" rx="1" fill="#12131A"/><rect x="9" y="3" width="3" height="10" rx="1" fill="#12131A"/><rect x="13.5" y="0" width="3" height="13" rx="1" fill="#12131A"/>
+</g>
+<g id="wifi" transform="translate(337 15.5)">
+<path d="M8 13.5L0.4 4.8A11.5 11.5 0 0 1 15.6 4.8Z" fill="#12131A"/>
+</g>
+<g id="battery" transform="translate(361 16)">
+<rect x=".5" y=".5" width="23" height="12" rx="3.5" stroke="#12131A" stroke-opacity=".45"/><rect x="2.5" y="2.5" width="17" height="8" rx="1.8" fill="#12131A"/><rect x="24.5" y="4" width="1.8" height="5" rx=".9" fill="#12131A" fill-opacity=".45"/>
+</g>
+</g>
+<g id="top-app-bar">
+<g id="btn-back" transform="translate(16 56)">
+<g id="btn">
+<circle cx="20" cy="20" r="20" fill="#FFFFFF" filter="url(#shadow-1B2150-6-6-12)"/>
+<circle cx="20" cy="20" r="19.5" stroke="#E6E8F0"/>
+<g id="icon-arrow-left" transform="translate(8 8) scale(1)" stroke="#12131A" color="#12131A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M19 12H5M11 6l-6 6 6 6"/></g>
+</g>
+</g>
+<text id="title" x="206" y="82" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="17" font-weight="600" fill="#12131A" text-anchor="middle">我的</text>
+</g>
+<g id="card-profile" transform="translate(24 120)">
+<rect id="card-profile-shadow" x="8" y="4" width="348" height="116" rx="28" fill="#A894F3" filter="url(#shadow-A894F3-18-10-16)"/>
+<g id="card-profile-fill" clip-path="url(#clip-364x120r28)">
+<rect width="364" height="120" fill="url(#lg-base-aurora)"/>
+<ellipse cx="0" cy="120" rx="260.26" ry="124.8" fill="url(#rg-374BE9-81)" filter="url(#blur-17)"/>
+<ellipse cx="182" cy="6" rx="151.42" ry="85.8" fill="url(#rg-BBA9F5-77)" filter="url(#blur-17)"/>
+<ellipse cx="371.28" cy="66" rx="198.74" ry="140.4" fill="url(#rg-239EB9-81)" filter="url(#blur-17)"/>
+<ellipse cx="283.92" cy="126" rx="141.96" ry="78" fill="url(#rg-6F7CEF-51)" filter="url(#blur-17)"/>
+<ellipse cx="283.92" cy="-12" rx="200.2" ry="60" fill="url(#rg-FFFFFF-16)" filter="url(#blur-17)"/>
+<g id="card-profile-gloss">
+<path d="M138.32 0H225.68L109.2 120H21.84Z" fill="url(#lg-sweep-364x120)" filter="url(#blur-6)"/>
+</g>
+<g id="card-profile-grain">
+<rect width="364" height="120" filter="url(#grain)" opacity=".06" style="mix-blend-mode:soft-light"/>
+</g>
+</g>
+<rect id="card-profile-rim" width="363" height="119" x=".5" y=".5" rx="27.5" stroke="url(#lg-rim-120)"/>
+<g id="avatar" transform="translate(20 28)">
+<circle cx="32" cy="32" r="32" fill="#FFFFFF" fill-opacity=".24"/>
+<circle cx="32" cy="32" r="31.5" stroke="#FFFFFF" stroke-opacity=".5"/>
+<g id="icon-person" transform="translate(16 16) scale(1.33)" stroke="#FFFFFF" color="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></g>
+</g>
+<text id="name" x="100" y="52" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="22" font-weight="700" fill="#FFFFFF">林夏</text>
+<text id="email" x="100" y="74" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="13" font-weight="500" fill="#FFFFFF" fill-opacity="0.8">linxia@example.com</text>
+<g id="plan-tag" transform="translate(100 84)">
+<rect width="87" height="26" rx="13.0" fill="#FFFFFF" fill-opacity=".9"/>
+<text x="10" y="17.32" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="12" font-weight="600" fill="#12131A">Helium Pro</text>
+</g>
+<text id="plan-link" x="326" y="101" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="12" font-weight="600" fill="#FFFFFF" text-anchor="end">管理套餐</text>
+<g id="icon-chevron-right" transform="translate(328 89) scale(0.67)" stroke="#FFFFFF" color="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M9 6l6 6-6 6"/></g>
+</g>
+<g id="group-账户" transform="translate(24 280)">
+<text id="group-title" x="4" y="0" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="13" font-weight="600" fill="#5A5F73">账户</text>
+<g id="group-card" transform="translate(0 12)">
+<rect id="group-bg" width="364" height="210" rx="24" fill="#FFFFFF" filter="url(#shadow-1B2150-6-6-12)"/>
+<rect x="0.5" y="0.5" width="363" height="209" rx="23.5" stroke="#E6E8F0" stroke-width="1"/>
+</g>
+<g id="row-1" transform="translate(0 12)">
+<g id="icon" transform="translate(14 14)">
+<g id="glass-icon">
+<circle cx="18" cy="18" r="18" fill="url(#lg-glass-base)" filter="url(#shadow-1B2150-8-2-3)"/>
+<g id="glass-glow">
+<circle cx="18" cy="20.7" r="12.6" fill="url(#rg-glass-acc-4F6BFF)"/>
+</g>
+<circle cx="18" cy="18" r="18" fill="none" stroke="url(#lg-glass-hl-36)" stroke-width="1.5"/>
+<circle cx="18" cy="18" r="18" fill="none" stroke="#DCE0EC" stroke-opacity=".7" stroke-width=".75"/>
+<ellipse cx="13.5" cy="8.1" rx="8.1" ry="3.6" fill="#FFFFFF" fill-opacity=".8" filter="url(#blur-2)"/>
+<g id="icon-person-2" transform="translate(8.5 8.5) scale(0.79)" stroke="#4F6BFF" color="#4F6BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></g>
+</g>
+</g>
+<text id="title-2" x="62" y="27" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="15" font-weight="600" fill="#12131A">个人资料</text>
+<text id="sub" x="62" y="46" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="12" font-weight="400" fill="#5A5F73">姓名 · 头像 · 邮箱</text>
+<g id="icon-chevron-right-2" transform="translate(332 23) scale(0.75)" stroke="#9AA0B4" color="#9AA0B4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M9 6l6 6-6 6"/></g>
+</g>
+<rect x="62" y="76" width="302" height="1" fill="#E6E8F0"/>
+<g id="row-2" transform="translate(0 76)">
+<g id="icon-2" transform="translate(14 14)">
+<g id="glass-icon-2">
+<circle cx="18" cy="18" r="18" fill="url(#lg-glass-base)" filter="url(#shadow-1B2150-8-2-3)"/>
+<g id="glass-glow-2">
+<circle cx="18" cy="20.7" r="12.6" fill="url(#rg-glass-acc-4F6BFF)"/>
+</g>
+<circle cx="18" cy="18" r="18" fill="none" stroke="url(#lg-glass-hl-36)" stroke-width="1.5"/>
+<circle cx="18" cy="18" r="18" fill="none" stroke="#DCE0EC" stroke-opacity=".7" stroke-width=".75"/>
+<ellipse cx="13.5" cy="8.1" rx="8.1" ry="3.6" fill="#FFFFFF" fill-opacity=".8" filter="url(#blur-2)"/>
+<g id="icon-link" transform="translate(8.5 8.5) scale(0.79)" stroke="#4F6BFF" color="#4F6BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></g>
+</g>
+</g>
+<text id="title-3" x="62" y="27" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="15" font-weight="600" fill="#12131A">Google 账号</text>
+<text id="sub-2" x="62" y="46" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="12" font-weight="400" fill="#5A5F73">连接 Gmail · 日历 · 云端硬盘</text>
+<g id="tag-status" transform="translate(256 20)">
+<rect width="68" height="24" rx="12.0" fill="#E3F7EF"/>
+<circle cx="15" cy="12.0" r="3.5" fill="#2FD6A0"/>
+<text x="22" y="16.32" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="12" font-weight="600" fill="#0E8A63">已连接</text>
+</g>
+<g id="icon-chevron-right-3" transform="translate(332 23) scale(0.75)" stroke="#9AA0B4" color="#9AA0B4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M9 6l6 6-6 6"/></g>
+</g>
+<rect x="62" y="140" width="302" height="1" fill="#E6E8F0"/>
+<g id="row-3" transform="translate(0 140)">
+<g id="icon-3" transform="translate(14 23)">
+<g id="glass-icon-3">
+<circle cx="18" cy="18" r="18" fill="url(#lg-glass-base)" filter="url(#shadow-1B2150-8-2-3)"/>
+<g id="glass-glow-3">
+<circle cx="18" cy="20.7" r="12.6" fill="url(#rg-glass-acc-4F6BFF)"/>
+</g>
+<circle cx="18" cy="18" r="18" fill="none" stroke="url(#lg-glass-hl-36)" stroke-width="1.5"/>
+<circle cx="18" cy="18" r="18" fill="none" stroke="#DCE0EC" stroke-opacity=".7" stroke-width=".75"/>
+<ellipse cx="13.5" cy="8.1" rx="8.1" ry="3.6" fill="#FFFFFF" fill-opacity=".8" filter="url(#blur-2)"/>
+<g id="icon-cpu" transform="translate(8.5 8.5) scale(0.79)" stroke="#4F6BFF" color="#4F6BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><rect x="6" y="6" width="12" height="12" rx="3"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/></g>
+</g>
+</g>
+<text id="title-4" x="62" y="28" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="15" font-weight="600" fill="#12131A">模型与推理</text>
+<text id="sub-3" x="62" y="48" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="12" font-weight="400" fill="#5A5F73">默认模型 OpenCode Go</text>
+<text id="sub-2" x="62" y="66" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="12" font-weight="400" fill="#9AA0B4">可选 Gemini API（需 API Key）</text>
+<g id="icon-chevron-right-4" transform="translate(332 32) scale(0.75)" stroke="#9AA0B4" color="#9AA0B4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M9 6l6 6-6 6"/></g>
+</g>
+</g>
+<g id="group-能力" transform="translate(24 530)">
+<text id="group-title-2" x="4" y="0" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="13" font-weight="600" fill="#5A5F73">能力</text>
+<g id="group-card-2" transform="translate(0 12)">
+<rect id="group-bg-2" width="364" height="168" rx="24" fill="#FFFFFF" filter="url(#shadow-1B2150-6-6-12)"/>
+<rect x="0.5" y="0.5" width="363" height="167" rx="23.5" stroke="#E6E8F0" stroke-width="1"/>
+</g>
+<g id="row-1-2" transform="translate(0 12)">
+<g id="icon-4" transform="translate(14 10)">
+<g id="glass-icon-4">
+<circle cx="18" cy="18" r="18" fill="url(#lg-glass-base)" filter="url(#shadow-1B2150-8-2-3)"/>
+<g id="glass-glow-4">
+<circle cx="18" cy="20.7" r="12.6" fill="url(#rg-glass-acc-4F6BFF)"/>
+</g>
+<circle cx="18" cy="18" r="18" fill="none" stroke="url(#lg-glass-hl-36)" stroke-width="1.5"/>
+<circle cx="18" cy="18" r="18" fill="none" stroke="#DCE0EC" stroke-opacity=".7" stroke-width=".75"/>
+<ellipse cx="13.5" cy="8.1" rx="8.1" ry="3.6" fill="#FFFFFF" fill-opacity=".8" filter="url(#blur-2)"/>
+<g id="icon-plug" transform="translate(8.5 8.5) scale(0.79)" stroke="#4F6BFF" color="#4F6BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M9 3v5M15 3v5M6.5 8h11v3a5.5 5.5 0 0 1-11 0zM12 16.5V21"/></g>
+</g>
+</g>
+<text id="title-5" x="62" y="33.4" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="15" font-weight="600" fill="#12131A">连接器</text>
+<text id="value" x="324" y="32.6" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="13" font-weight="500" fill="#5A5F73" text-anchor="end" style="font-variant-numeric: tabular-nums; font-variation-settings: 'ROND' 100">6 个</text>
+<g id="icon-chevron-right-5" transform="translate(332 19) scale(0.75)" stroke="#9AA0B4" color="#9AA0B4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M9 6l6 6-6 6"/></g>
+</g>
+<rect x="62" y="68" width="302" height="1" fill="#E6E8F0"/>
+<g id="row-2-2" transform="translate(0 68)">
+<g id="icon-5" transform="translate(14 10)">
+<g id="glass-icon-5">
+<circle cx="18" cy="18" r="18" fill="url(#lg-glass-base)" filter="url(#shadow-1B2150-8-2-3)"/>
+<g id="glass-glow-5">
+<circle cx="18" cy="20.7" r="12.6" fill="url(#rg-glass-acc-4F6BFF)"/>
+</g>
+<circle cx="18" cy="18" r="18" fill="none" stroke="url(#lg-glass-hl-36)" stroke-width="1.5"/>
+<circle cx="18" cy="18" r="18" fill="none" stroke="#DCE0EC" stroke-opacity=".7" stroke-width=".75"/>
+<ellipse cx="13.5" cy="8.1" rx="8.1" ry="3.6" fill="#FFFFFF" fill-opacity=".8" filter="url(#blur-2)"/>
+<g id="icon-sparkle" transform="translate(8.5 8.5) scale(0.79)" stroke="#4F6BFF" color="#4F6BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M12 3.5l1.8 5.2a2 2 0 0 0 1.2 1.2l5.2 1.8-5.2 1.8a2 2 0 0 0-1.2 1.2L12 20l-1.8-5.3a2 2 0 0 0-1.2-1.2L3.8 11.7 9 9.9a2 2 0 0 0 1.2-1.2z"/></g>
+</g>
+</g>
+<text id="title-6" x="62" y="33.4" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="15" font-weight="600" fill="#12131A">技能</text>
+<text id="value-2" x="324" y="32.6" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="13" font-weight="500" fill="#5A5F73" text-anchor="end" style="font-variant-numeric: tabular-nums; font-variation-settings: 'ROND' 100">8 个</text>
+<g id="icon-chevron-right-6" transform="translate(332 19) scale(0.75)" stroke="#9AA0B4" color="#9AA0B4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M9 6l6 6-6 6"/></g>
+</g>
+<rect x="62" y="124" width="302" height="1" fill="#E6E8F0"/>
+<g id="row-3-2" transform="translate(0 124)">
+<g id="icon-6" transform="translate(14 10)">
+<g id="glass-icon-6">
+<circle cx="18" cy="18" r="18" fill="url(#lg-glass-base)" filter="url(#shadow-1B2150-8-2-3)"/>
+<g id="glass-glow-6">
+<circle cx="18" cy="20.7" r="12.6" fill="url(#rg-glass-acc-4F6BFF)"/>
+</g>
+<circle cx="18" cy="18" r="18" fill="none" stroke="url(#lg-glass-hl-36)" stroke-width="1.5"/>
+<circle cx="18" cy="18" r="18" fill="none" stroke="#DCE0EC" stroke-opacity=".7" stroke-width=".75"/>
+<ellipse cx="13.5" cy="8.1" rx="8.1" ry="3.6" fill="#FFFFFF" fill-opacity=".8" filter="url(#blur-2)"/>
+<g id="icon-server" transform="translate(8.5 8.5) scale(0.79)" stroke="#4F6BFF" color="#4F6BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><rect x="4" y="4" width="16" height="7" rx="2.5"/><rect x="4" y="13" width="16" height="7" rx="2.5"/><path d="M8 7.5h.01M8 16.5h.01" stroke-width="2.6"/></g>
+</g>
+</g>
+<text id="title-7" x="62" y="33.4" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="15" font-weight="600" fill="#12131A">MCP</text>
+<text id="value-3" x="324" y="32.6" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="13" font-weight="500" fill="#5A5F73" text-anchor="end" style="font-variant-numeric: tabular-nums; font-variation-settings: 'ROND' 100">2 个服务器</text>
+<g id="icon-chevron-right-7" transform="translate(332 19) scale(0.75)" stroke="#9AA0B4" color="#9AA0B4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M9 6l6 6-6 6"/></g>
+</g>
+</g>
+<g id="group-记忆与文件" transform="translate(24 738)">
+<text id="group-title-3" x="4" y="0" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="13" font-weight="600" fill="#5A5F73">记忆与文件</text>
+<g id="group-card-3" transform="translate(0 12)">
+<rect id="group-bg-3" width="364" height="176" rx="24" fill="#FFFFFF" filter="url(#shadow-1B2150-6-6-12)"/>
+<rect x="0.5" y="0.5" width="363" height="175" rx="23.5" stroke="#E6E8F0" stroke-width="1"/>
+</g>
+<g id="row-1-3" transform="translate(0 12)">
+<g id="icon-7" transform="translate(14 10)">
+<g id="glass-icon-7">
+<circle cx="18" cy="18" r="18" fill="url(#lg-glass-base)" filter="url(#shadow-1B2150-8-2-3)"/>
+<g id="glass-glow-7">
+<circle cx="18" cy="20.7" r="12.6" fill="url(#rg-glass-acc-4F6BFF)"/>
+</g>
+<circle cx="18" cy="18" r="18" fill="none" stroke="url(#lg-glass-hl-36)" stroke-width="1.5"/>
+<circle cx="18" cy="18" r="18" fill="none" stroke="#DCE0EC" stroke-opacity=".7" stroke-width=".75"/>
+<ellipse cx="13.5" cy="8.1" rx="8.1" ry="3.6" fill="#FFFFFF" fill-opacity=".8" filter="url(#blur-2)"/>
+<g id="icon-memory" transform="translate(8.5 8.5) scale(0.79)" stroke="#4F6BFF" color="#4F6BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M12 4.5a7.5 7.5 0 1 0 7.5 7.5"/><path d="M12 8.5a3.5 3.5 0 1 0 3.5 3.5"/><path d="M15.5 3.5l1 2.5 2.5 1-2.5 1-1 2.5-1-2.5-2.5-1 2.5-1z"/></g>
+</g>
+</g>
+<text id="title-8" x="62" y="33.4" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="15" font-weight="600" fill="#12131A">记忆</text>
+<text id="value-4" x="324" y="32.6" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="13" font-weight="500" fill="#5A5F73" text-anchor="end" style="font-variant-numeric: tabular-nums; font-variation-settings: 'ROND' 100">126 条</text>
+<g id="icon-chevron-right-8" transform="translate(332 19) scale(0.75)" stroke="#9AA0B4" color="#9AA0B4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M9 6l6 6-6 6"/></g>
+</g>
+<rect x="62" y="68" width="302" height="1" fill="#E6E8F0"/>
+<g id="row-2-3" transform="translate(0 68)">
+<g id="icon-8" transform="translate(14 14)">
+<g id="glass-icon-8">
+<circle cx="18" cy="18" r="18" fill="url(#lg-glass-base)" filter="url(#shadow-1B2150-8-2-3)"/>
+<g id="glass-glow-8">
+<circle cx="18" cy="20.7" r="12.6" fill="url(#rg-glass-acc-4F6BFF)"/>
+</g>
+<circle cx="18" cy="18" r="18" fill="none" stroke="url(#lg-glass-hl-36)" stroke-width="1.5"/>
+<circle cx="18" cy="18" r="18" fill="none" stroke="#DCE0EC" stroke-opacity=".7" stroke-width=".75"/>
+<ellipse cx="13.5" cy="8.1" rx="8.1" ry="3.6" fill="#FFFFFF" fill-opacity=".8" filter="url(#blur-2)"/>
+<g id="icon-file" transform="translate(8.5 8.5) scale(0.79)" stroke="#4F6BFF" color="#4F6BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></g>
+</g>
+</g>
+<text id="title-9" x="62" y="27" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="15" font-weight="600" fill="#12131A">系统文件</text>
+<text id="sub-4" x="62" y="46" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="12" font-weight="400" fill="#5A5F73">偏好、规则与人设文档</text>
+<g id="icon-chevron-right-9" transform="translate(332 23) scale(0.75)" stroke="#9AA0B4" color="#9AA0B4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M9 6l6 6-6 6"/></g>
+</g>
+<rect x="62" y="132" width="302" height="1" fill="#E6E8F0"/>
+<g id="row-3-3" transform="translate(0 132)">
+<g id="icon-9" transform="translate(14 10)">
+<g id="glass-icon-9">
+<circle cx="18" cy="18" r="18" fill="url(#lg-glass-base)" filter="url(#shadow-1B2150-8-2-3)"/>
+<g id="glass-glow-9">
+<circle cx="18" cy="20.7" r="12.6" fill="url(#rg-glass-acc-4F6BFF)"/>
+</g>
+<circle cx="18" cy="18" r="18" fill="none" stroke="url(#lg-glass-hl-36)" stroke-width="1.5"/>
+<circle cx="18" cy="18" r="18" fill="none" stroke="#DCE0EC" stroke-opacity=".7" stroke-width=".75"/>
+<ellipse cx="13.5" cy="8.1" rx="8.1" ry="3.6" fill="#FFFFFF" fill-opacity=".8" filter="url(#blur-2)"/>
+<g id="icon-folder" transform="translate(8.5 8.5) scale(0.79)" stroke="#4F6BFF" color="#4F6BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M3.5 7.5A2.5 2.5 0 0 1 6 5h3.5l2 2.5H18a2.5 2.5 0 0 1 2.5 2.5v7.5A2.5 2.5 0 0 1 18 20H6a2.5 2.5 0 0 1-2.5-2.5z"/></g>
+</g>
+</g>
+<text id="title-10" x="62" y="33.4" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="15" font-weight="600" fill="#12131A">项目空间</text>
+<text id="value-5" x="324" y="32.6" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="13" font-weight="500" fill="#5A5F73" text-anchor="end" style="font-variant-numeric: tabular-nums; font-variation-settings: 'ROND' 100">3 个</text>
+<g id="icon-chevron-right-10" transform="translate(332 19) scale(0.75)" stroke="#9AA0B4" color="#9AA0B4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M9 6l6 6-6 6"/></g>
+</g>
+</g>
+<g id="group-安全" transform="translate(24 954)">
+<text id="group-title-4" x="4" y="0" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="13" font-weight="600" fill="#5A5F73">安全</text>
+<g id="group-card-4" transform="translate(0 12)">
+<rect id="group-bg-4" width="364" height="184" rx="24" fill="#FFFFFF" filter="url(#shadow-1B2150-6-6-12)"/>
+<rect x="0.5" y="0.5" width="363" height="183" rx="23.5" stroke="#E6E8F0" stroke-width="1"/>
+</g>
+<g id="row-1-4" transform="translate(0 12)">
+<g id="icon-10" transform="translate(14 14)">
+<g id="glass-icon-10">
+<circle cx="18" cy="18" r="18" fill="url(#lg-glass-base)" filter="url(#shadow-1B2150-8-2-3)"/>
+<g id="glass-glow-10">
+<circle cx="18" cy="20.7" r="12.6" fill="url(#rg-glass-acc-4F6BFF)"/>
+</g>
+<circle cx="18" cy="18" r="18" fill="none" stroke="url(#lg-glass-hl-36)" stroke-width="1.5"/>
+<circle cx="18" cy="18" r="18" fill="none" stroke="#DCE0EC" stroke-opacity=".7" stroke-width=".75"/>
+<ellipse cx="13.5" cy="8.1" rx="8.1" ry="3.6" fill="#FFFFFF" fill-opacity=".8" filter="url(#blur-2)"/>
+<g id="icon-shield" transform="translate(8.5 8.5) scale(0.79)" stroke="#4F6BFF" color="#4F6BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M12 3l7.5 3v5.5c0 4.6-3.2 8.3-7.5 9.5-4.3-1.2-7.5-4.9-7.5-9.5V6z"/><path d="M8.8 12l2.2 2.2 4.2-4.4"/></g>
+</g>
+</g>
+<text id="title-11" x="62" y="27" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="15" font-weight="600" fill="#12131A">审批规则</text>
+<text id="sub-5" x="62" y="46" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="12" font-weight="400" fill="#5A5F73">付款、发消息前需你确认</text>
+<g id="icon-chevron-right-11" transform="translate(332 23) scale(0.75)" stroke="#9AA0B4" color="#9AA0B4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M9 6l6 6-6 6"/></g>
+</g>
+<rect x="62" y="76" width="302" height="1" fill="#E6E8F0"/>
+<g id="row-2-4" transform="translate(0 76)">
+<g id="icon-11" transform="translate(14 14)">
+<g id="glass-icon-11">
+<circle cx="18" cy="18" r="18" fill="url(#lg-glass-base)" filter="url(#shadow-1B2150-8-2-3)"/>
+<g id="glass-glow-11">
+<circle cx="18" cy="20.7" r="12.6" fill="url(#rg-glass-acc-4F6BFF)"/>
+</g>
+<circle cx="18" cy="18" r="18" fill="none" stroke="url(#lg-glass-hl-36)" stroke-width="1.5"/>
+<circle cx="18" cy="18" r="18" fill="none" stroke="#DCE0EC" stroke-opacity=".7" stroke-width=".75"/>
+<ellipse cx="13.5" cy="8.1" rx="8.1" ry="3.6" fill="#FFFFFF" fill-opacity=".8" filter="url(#blur-2)"/>
+<g id="icon-list" transform="translate(8.5 8.5) scale(0.79)" stroke="#4F6BFF" color="#4F6BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M9 6.5h11M9 12h11M9 17.5h11M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01" /></g>
+</g>
+</g>
+<text id="title-12" x="62" y="27" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="15" font-weight="600" fill="#12131A">权限与审计</text>
+<text id="sub-6" x="62" y="46" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="12" font-weight="400" fill="#5A5F73">近 7 天 42 次操作</text>
+<g id="icon-chevron-right-12" transform="translate(332 23) scale(0.75)" stroke="#9AA0B4" color="#9AA0B4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M9 6l6 6-6 6"/></g>
+</g>
+<rect x="62" y="140" width="302" height="1" fill="#E6E8F0"/>
+<g id="row-3-4" transform="translate(0 140)">
+<g id="icon-12" transform="translate(14 10)">
+<g id="glass-icon-12">
+<circle cx="18" cy="18" r="18" fill="url(#lg-glass-base)" filter="url(#shadow-1B2150-8-2-3)"/>
+<g id="glass-glow-12">
+<circle cx="18" cy="20.7" r="12.6" fill="url(#rg-glass-acc-4F6BFF)"/>
+</g>
+<circle cx="18" cy="18" r="18" fill="none" stroke="url(#lg-glass-hl-36)" stroke-width="1.5"/>
+<circle cx="18" cy="18" r="18" fill="none" stroke="#DCE0EC" stroke-opacity=".7" stroke-width=".75"/>
+<ellipse cx="13.5" cy="8.1" rx="8.1" ry="3.6" fill="#FFFFFF" fill-opacity=".8" filter="url(#blur-2)"/>
+<g id="icon-key" transform="translate(8.5 8.5) scale(0.79)" stroke="#4F6BFF" color="#4F6BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><circle cx="8" cy="15" r="4.5"/><path d="M11.2 11.8L20 3M16.5 6.5l2.5 2.5M14 9l2 2"/></g>
+</g>
+</g>
+<text id="title-13" x="62" y="33.4" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="15" font-weight="600" fill="#12131A">凭据保险箱</text>
+<text id="value-6" x="324" y="32.6" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="13" font-weight="500" fill="#5A5F73" text-anchor="end" style="font-variant-numeric: tabular-nums; font-variation-settings: 'ROND' 100">3 项</text>
+<g id="icon-chevron-right-13" transform="translate(332 19) scale(0.75)" stroke="#9AA0B4" color="#9AA0B4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M9 6l6 6-6 6"/></g>
+</g>
+</g>
+<g id="group-通用" transform="translate(24 1178)">
+<text id="group-title-5" x="4" y="0" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="13" font-weight="600" fill="#5A5F73">通用</text>
+<g id="group-card-5" transform="translate(0 12)">
+<rect id="group-bg-5" width="364" height="224" rx="24" fill="#FFFFFF" filter="url(#shadow-1B2150-6-6-12)"/>
+<rect x="0.5" y="0.5" width="363" height="223" rx="23.5" stroke="#E6E8F0" stroke-width="1"/>
+</g>
+<g id="row-1-5" transform="translate(0 12)">
+<g id="icon-13" transform="translate(14 10)">
+<g id="glass-icon-13">
+<circle cx="18" cy="18" r="18" fill="url(#lg-glass-base)" filter="url(#shadow-1B2150-8-2-3)"/>
+<g id="glass-glow-13">
+<circle cx="18" cy="20.7" r="12.6" fill="url(#rg-glass-acc-4F6BFF)"/>
+</g>
+<circle cx="18" cy="18" r="18" fill="none" stroke="url(#lg-glass-hl-36)" stroke-width="1.5"/>
+<circle cx="18" cy="18" r="18" fill="none" stroke="#DCE0EC" stroke-opacity=".7" stroke-width=".75"/>
+<ellipse cx="13.5" cy="8.1" rx="8.1" ry="3.6" fill="#FFFFFF" fill-opacity=".8" filter="url(#blur-2)"/>
+<g id="icon-bell" transform="translate(8.5 8.5) scale(0.79)" stroke="#4F6BFF" color="#4F6BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></g>
+</g>
+</g>
+<text id="title-14" x="62" y="33.4" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="15" font-weight="600" fill="#12131A">通知</text>
+<text id="value-7" x="324" y="32.6" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="13" font-weight="500" fill="#5A5F73" text-anchor="end" style="font-variant-numeric: tabular-nums; font-variation-settings: 'ROND' 100">开</text>
+<g id="icon-chevron-right-14" transform="translate(332 19) scale(0.75)" stroke="#9AA0B4" color="#9AA0B4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M9 6l6 6-6 6"/></g>
+</g>
+<rect x="62" y="68" width="302" height="1" fill="#E6E8F0"/>
+<g id="row-2-5" transform="translate(0 68)">
+<g id="icon-14" transform="translate(14 10)">
+<g id="glass-icon-14">
+<circle cx="18" cy="18" r="18" fill="url(#lg-glass-base)" filter="url(#shadow-1B2150-8-2-3)"/>
+<g id="glass-glow-14">
+<circle cx="18" cy="20.7" r="12.6" fill="url(#rg-glass-acc-4F6BFF)"/>
+</g>
+<circle cx="18" cy="18" r="18" fill="none" stroke="url(#lg-glass-hl-36)" stroke-width="1.5"/>
+<circle cx="18" cy="18" r="18" fill="none" stroke="#DCE0EC" stroke-opacity=".7" stroke-width=".75"/>
+<ellipse cx="13.5" cy="8.1" rx="8.1" ry="3.6" fill="#FFFFFF" fill-opacity=".8" filter="url(#blur-2)"/>
+<g id="icon-palette" transform="translate(8.5 8.5) scale(0.79)" stroke="#4F6BFF" color="#4F6BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M12 3.5a8.5 8.5 0 0 0 0 17c1.3 0 1.8-1 1.3-2-.6-1.2.2-2.5 1.5-2.5H17a3.5 3.5 0 0 0 3.5-3.5c0-5-3.8-9-8.5-9z"/><path d="M8 11h.01M11 7.5h.01M15.5 8.5h.01" stroke-width="2.6"/></g>
+</g>
+</g>
+<text id="title-15" x="62" y="33.4" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="15" font-weight="600" fill="#12131A">外观</text>
+<text id="value-8" x="324" y="32.6" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="13" font-weight="500" fill="#5A5F73" text-anchor="end" style="font-variant-numeric: tabular-nums; font-variation-settings: 'ROND' 100">跟随系统</text>
+<g id="icon-chevron-right-15" transform="translate(332 19) scale(0.75)" stroke="#9AA0B4" color="#9AA0B4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M9 6l6 6-6 6"/></g>
+</g>
+<rect x="62" y="124" width="302" height="1" fill="#E6E8F0"/>
+<g id="row-3-5" transform="translate(0 124)">
+<g id="icon-15" transform="translate(14 10)">
+<g id="glass-icon-15">
+<circle cx="18" cy="18" r="18" fill="url(#lg-glass-base)" filter="url(#shadow-1B2150-8-2-3)"/>
+<g id="glass-glow-15">
+<circle cx="18" cy="20.7" r="12.6" fill="url(#rg-glass-acc-4F6BFF)"/>
+</g>
+<circle cx="18" cy="18" r="18" fill="none" stroke="url(#lg-glass-hl-36)" stroke-width="1.5"/>
+<circle cx="18" cy="18" r="18" fill="none" stroke="#DCE0EC" stroke-opacity=".7" stroke-width=".75"/>
+<ellipse cx="13.5" cy="8.1" rx="8.1" ry="3.6" fill="#FFFFFF" fill-opacity=".8" filter="url(#blur-2)"/>
+<g id="icon-globe" transform="translate(8.5 8.5) scale(0.79)" stroke="#4F6BFF" color="#4F6BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.4 2.4 3.5 5.2 3.5 8.5s-1.1 6.1-3.5 8.5c-2.4-2.4-3.5-5.2-3.5-8.5S9.6 5.9 12 3.5z"/></g>
+</g>
+</g>
+<text id="title-16" x="62" y="33.4" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="15" font-weight="600" fill="#12131A">语言</text>
+<text id="value-9" x="324" y="32.6" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="13" font-weight="500" fill="#5A5F73" text-anchor="end" style="font-variant-numeric: tabular-nums; font-variation-settings: 'ROND' 100">简体中文</text>
+<g id="icon-chevron-right-16" transform="translate(332 19) scale(0.75)" stroke="#9AA0B4" color="#9AA0B4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M9 6l6 6-6 6"/></g>
+</g>
+<rect x="62" y="180" width="302" height="1" fill="#E6E8F0"/>
+<g id="row-4" transform="translate(0 180)">
+<g id="icon-16" transform="translate(14 10)">
+<g id="glass-icon-16">
+<circle cx="18" cy="18" r="18" fill="url(#lg-glass-base)" filter="url(#shadow-1B2150-8-2-3)"/>
+<g id="glass-glow-16">
+<circle cx="18" cy="20.7" r="12.6" fill="url(#rg-glass-acc-4F6BFF)"/>
+</g>
+<circle cx="18" cy="18" r="18" fill="none" stroke="url(#lg-glass-hl-36)" stroke-width="1.5"/>
+<circle cx="18" cy="18" r="18" fill="none" stroke="#DCE0EC" stroke-opacity=".7" stroke-width=".75"/>
+<ellipse cx="13.5" cy="8.1" rx="8.1" ry="3.6" fill="#FFFFFF" fill-opacity=".8" filter="url(#blur-2)"/>
+<g id="icon-info" transform="translate(8.5 8.5) scale(0.79)" stroke="#4F6BFF" color="#4F6BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8h.01"/></g>
+</g>
+</g>
+<text id="title-17" x="62" y="33.4" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="15" font-weight="600" fill="#12131A">关于</text>
+<text id="value-10" x="324" y="32.6" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="13" font-weight="500" fill="#5A5F73" text-anchor="end" style="font-variant-numeric: tabular-nums; font-variation-settings: 'ROND' 100">v0.3</text>
+<g id="icon-chevron-right-17" transform="translate(332 19) scale(0.75)" stroke="#9AA0B4" color="#9AA0B4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M9 6l6 6-6 6"/></g>
+</g>
+</g>
+<g id="btn-signout" transform="translate(24 1442)">
+<rect x=".5" y=".5" width="363" height="47" rx="23.5" fill="#FFFFFF" stroke="#CDD1DE"/>
+<text x="182" y="29.4" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="15" font-weight="500" fill="#12131A" text-anchor="middle">退出登录</text>
+</g>
+<g id="gesture-bar">
+<rect x="152.0" y="1540" width="108" height="4" rx="2" fill="#12131A" fill-opacity=".85"/>
+</g>
+</svg>

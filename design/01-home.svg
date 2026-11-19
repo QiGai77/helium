@@ -1,0 +1,158 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="412" height="892" viewBox="0 0 412 892" fill="none">
+<title>01 · Home · Helium v0.3</title>
+<defs>
+<linearGradient id="lg-orb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3ABCD4"/><stop offset="0.55" stop-color="#4F6BFF"/><stop offset="1" stop-color="#C9BEF8"/></linearGradient>
+<filter id="shadow-1B2150-6-6-12" x="-30%" y="-30%" width="160%" height="180%" color-interpolation-filters="sRGB"><feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#1B2150" flood-opacity="0.06"/></filter>
+<linearGradient id="lg-base-aurora" x1="0" y1="0.1" x2="1" y2="0.9"><stop offset="0" stop-color="#455FEA"/><stop offset="0.52" stop-color="#A894F3"/><stop offset="1" stop-color="#28A2B8"/></linearGradient>
+<filter id="shadow-A894F3-18-10-16" x="-30%" y="-30%" width="160%" height="180%" color-interpolation-filters="sRGB"><feDropShadow dx="0" dy="10" stdDeviation="16" flood-color="#A894F3" flood-opacity="0.18"/></filter>
+<radialGradient id="rg-374BE9-81"><stop offset="0" stop-color="#374BE9" stop-opacity="0.81"/><stop offset="1" stop-color="#374BE9" stop-opacity="0"/></radialGradient>
+<filter id="blur-29" x="-60%" y="-60%" width="220%" height="220%" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="29"/></filter>
+<radialGradient id="rg-BBA9F5-77"><stop offset="0" stop-color="#BBA9F5" stop-opacity="0.77"/><stop offset="1" stop-color="#BBA9F5" stop-opacity="0"/></radialGradient>
+<radialGradient id="rg-239EB9-81"><stop offset="0" stop-color="#239EB9" stop-opacity="0.81"/><stop offset="1" stop-color="#239EB9" stop-opacity="0"/></radialGradient>
+<radialGradient id="rg-6F7CEF-51"><stop offset="0" stop-color="#6F7CEF" stop-opacity="0.51"/><stop offset="1" stop-color="#6F7CEF" stop-opacity="0"/></radialGradient>
+<radialGradient id="rg-FFFFFF-16"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.16"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+<linearGradient id="lg-sweep-364x208" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="182.0" y2="105.0"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0"/><stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0.18"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+<filter id="blur-6" x="-60%" y="-60%" width="220%" height="220%" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="6"/></filter>
+<filter id="grain" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="7" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1.4 -.55"/></filter>
+<clipPath id="clip-364x208r28"><rect width="364" height="208" rx="28"/></clipPath>
+<linearGradient id="lg-rim-208" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="208"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.7"/><stop offset="0.35" stop-color="#FFFFFF" stop-opacity="0.18"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0.08"/></linearGradient>
+<linearGradient id="lg-illo-face-hero" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.95"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0.7"/></linearGradient>
+<filter id="blur-3" x="-60%" y="-60%" width="220%" height="220%" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="3"/></filter>
+<filter id="blur-1" x="-60%" y="-60%" width="220%" height="220%" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="1.5"/></filter>
+<linearGradient id="lg-orb-glass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#EEF0F8"/></linearGradient>
+<linearGradient id="lg-orb-rim-96" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="96"><stop offset="0" stop-color="#FFFFFF" stop-opacity="1"/><stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0.2"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+<filter id="shadow-1B2150-8-8-14" x="-30%" y="-30%" width="160%" height="180%" color-interpolation-filters="sRGB"><feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#1B2150" flood-opacity="0.08"/></filter>
+<radialGradient id="rg-orb-halo"><stop offset="0" stop-color="#4F6BFF" stop-opacity="0.14"/><stop offset="1" stop-color="#4F6BFF" stop-opacity="0"/></radialGradient>
+<radialGradient id="rg-orb-hl"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.75"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+<linearGradient id="lg-aurora-sunrise" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3ABCD4"/><stop offset="0.3" stop-color="#6E83EF"/><stop offset="0.55" stop-color="#C9BEF8"/><stop offset="0.8" stop-color="#F7B5D6"/><stop offset="1" stop-color="#EDC25E"/></linearGradient>
+</defs>
+<g id="background">
+<rect id="canvas" width="412" height="892" fill="#F4F5FB"/>
+<g id="bg-orbs">
+
+</g>
+<g id="bg-particles">
+<circle cx="102.2" cy="447.5" r="1.5" fill="#9AA0B4" fill-opacity="0.18"/>
+<circle cx="247.8" cy="707.1" r="2" fill="#9AA0B4" fill-opacity="0.18"/>
+<circle cx="83.9" cy="570.6" r="2" fill="#9AA0B4" fill-opacity="0.18"/>
+<circle cx="99.8" cy="168.0" r="2" fill="#4F6BFF" fill-opacity="0.18"/>
+</g>
+</g>
+<g id="status-bar">
+<text id="time" x="24" y="30" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="15" font-weight="600" fill="#12131A">9:41</text>
+<g id="signal" transform="translate(314 15)">
+<rect x="0" y="9" width="3" height="4" rx="1" fill="#12131A"/><rect x="4.5" y="6" width="3" height="7" rx="1" fill="#12131A"/><rect x="9" y="3" width="3" height="10" rx="1" fill="#12131A"/><rect x="13.5" y="0" width="3" height="13" rx="1" fill="#12131A"/>
+</g>
+<g id="wifi" transform="translate(337 15.5)">
+<path d="M8 13.5L0.4 4.8A11.5 11.5 0 0 1 15.6 4.8Z" fill="#12131A"/>
+</g>
+<g id="battery" transform="translate(361 16)">
+<rect x=".5" y=".5" width="23" height="12" rx="3.5" stroke="#12131A" stroke-opacity=".45"/><rect x="2.5" y="2.5" width="17" height="8" rx="1.8" fill="#12131A"/><rect x="24.5" y="4" width="1.8" height="5" rx=".9" fill="#12131A" fill-opacity=".45"/>
+</g>
+</g>
+<g id="header">
+<text id="date" x="24" y="92" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="13" font-weight="500" fill="#5A5F73">11月19日 · 周四</text>
+<text id="greeting" x="24" y="148" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="44" font-weight="700" fill="#12131A">晚上好</text>
+<text id="subtitle" x="24" y="180" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="17" font-weight="400" fill="#5A5F73">今天有 3 件事在进行</text>
+<g id="avatar" transform="translate(348 68)">
+<g id="btn-avatar">
+<circle cx="20" cy="20" r="20" fill="#FFFFFF" filter="url(#shadow-1B2150-6-6-12)"/>
+<circle cx="20" cy="20" r="19.5" stroke="#E6E8F0"/>
+<g id="icon-person" transform="translate(8 8) scale(1)" stroke="#5A5F73" color="#5A5F73" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></g>
+</g>
+</g>
+</g>
+<g id="card-now-flight" transform="translate(24 212)">
+<rect id="card-flight-shadow" x="8" y="4" width="348" height="204" rx="28" fill="#A894F3" filter="url(#shadow-A894F3-18-10-16)"/>
+<g id="card-flight-fill" clip-path="url(#clip-364x208r28)">
+<rect width="364" height="208" fill="url(#lg-base-aurora)"/>
+<ellipse cx="0" cy="208" rx="260.26" ry="216.32" fill="url(#rg-374BE9-81)" filter="url(#blur-29)"/>
+<ellipse cx="182" cy="10.4" rx="151.42" ry="148.72" fill="url(#rg-BBA9F5-77)" filter="url(#blur-29)"/>
+<ellipse cx="371.28" cy="114.4" rx="198.74" ry="243.36" fill="url(#rg-239EB9-81)" filter="url(#blur-29)"/>
+<ellipse cx="283.92" cy="218.4" rx="141.96" ry="135.2" fill="url(#rg-6F7CEF-51)" filter="url(#blur-29)"/>
+<ellipse cx="283.92" cy="-20.8" rx="200.2" ry="104" fill="url(#rg-FFFFFF-16)" filter="url(#blur-29)"/>
+<g id="card-flight-gloss">
+<path d="M138.32 0H225.68L109.2 208H21.84Z" fill="url(#lg-sweep-364x208)" filter="url(#blur-6)"/>
+</g>
+<g id="card-flight-grain">
+<rect width="364" height="208" filter="url(#grain)" opacity=".06" style="mix-blend-mode:soft-light"/>
+</g>
+</g>
+<rect id="card-flight-rim" width="363" height="207" x=".5" y=".5" rx="27.5" stroke="url(#lg-rim-208)"/>
+<g id="tag-now" transform="translate(24 22)">
+<rect width="80" height="26" rx="13.0" fill="#FFFFFF" fill-opacity=".9"/>
+<text x="10" y="17.32" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="12" font-weight="600" fill="#12131A">现在最要紧</text>
+</g>
+<text id="label" x="24" y="80" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="17" font-weight="600" fill="#FFFFFF">航班 · 周六</text>
+<text id="meta" x="24" y="102" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="13" font-weight="500" fill="#FFFFFF" fill-opacity="0.8">东航 MU523 · 已提醒值机</text>
+<text id="time-2" x="22" y="182" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="64" font-weight="500" fill="#FFFFFF" letter-spacing="-1" style="font-variant-numeric: tabular-nums; font-variation-settings: 'ROND' 100">18:40</text>
+<g id="illo-flight" transform="translate(192 22) scale(1.3)"><path d="M4 64h18M10 72h12M0 56h10" stroke="#FFFFFF" stroke-opacity="0.32" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><g fill="#FFFFFF" fill-opacity="0.32"><circle cx="90.2" cy="82" r="6"/><circle cx="98.6" cy="77.8" r="8.4"/><circle cx="107" cy="81.4" r="6"/><rect x="84.2" y="80.8" width="28.8" height="7.2" rx="3.6"/></g><g transform="rotate(-14 60 50)"><path d="M56 44L46 18Q45 14 49 14H56L76 44Z" fill="#FFFFFF" fill-opacity="0.48"/><path d="M24 44L16 26Q15 23 18 23H25L36 44Z" fill="#FFFFFF" fill-opacity="0.48"/><path d="M22 42H96C108 42 116 47 116 51C116 55 108 60 96 60H26C18 60 14 56 14 51C14 46 17 42 22 42Z" fill="url(#lg-illo-face-hero)"/><path d="M16 55C20 59 24 60 28 60H96C105 60 112 57.5 114.5 55Z" fill="#FFFFFF" fill-opacity="0.48"/><circle cx="40" cy="48.5" r="1.9" fill="#1B2150" fill-opacity="0.22"/><circle cx="48" cy="48.5" r="1.9" fill="#1B2150" fill-opacity="0.22"/><circle cx="56" cy="48.5" r="1.9" fill="#1B2150" fill-opacity="0.22"/><circle cx="64" cy="48.5" r="1.9" fill="#1B2150" fill-opacity="0.22"/><circle cx="72" cy="48.5" r="1.9" fill="#1B2150" fill-opacity="0.22"/><circle cx="80" cy="48.5" r="1.9" fill="#1B2150" fill-opacity="0.22"/><circle cx="88" cy="48.5" r="1.9" fill="#1B2150" fill-opacity="0.22"/><path d="M103 45.5C107.5 45.8 110.5 47.6 112.2 50H103Z" fill="#1B2150" fill-opacity="0.22"/><path d="M54 54L42 84Q41 88 45 88H52L78 54Z" fill="url(#lg-illo-face-hero)"/><path d="M54 54L49 66H54L66 54Z" fill="#FFFFFF" fill-opacity="0.8"/><path d="M24 54L18 66H24L36 54Z" fill="#FFFFFF" fill-opacity="0.8"/><path d="M27 44.6H92" stroke="#FFFFFF" stroke-opacity="1" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><ellipse cx="98" cy="45" rx="5" ry="1.4" fill="#FFFFFF" fill-opacity="1" filter="url(#blur-1)"/></g></g>
+<g id="route-chip" transform="translate(248 152)">
+<rect width="92" height="32" rx="16.0" fill="#FFFFFF" fill-opacity=".9"/>
+<text x="10" y="20.68" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="13" font-weight="600" fill="#12131A">PVG → HND</text>
+</g>
+</g>
+<g id="hint-approval" transform="translate(24 444)">
+<rect id="hint-1-bg" width="364" height="56" rx="20" fill="#FFFFFF" filter="url(#shadow-1B2150-6-6-12)"/>
+<rect x="0.5" y="0.5" width="363" height="55" rx="19.5" stroke="#E6E8F0" stroke-width="1"/>
+<circle cx="24" cy="28.0" r="4" fill="#FFC53D"/>
+<text x="40" y="33.4" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="15" font-weight="600" fill="#12131A">1 件待你确认</text>
+<text x="134.83" y="33" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="13" font-weight="400" fill="#5A5F73">降噪耳机 · ¥1,299</text>
+<g id="icon-chevron-right" transform="translate(328 19) scale(0.75)" stroke="#9AA0B4" color="#9AA0B4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M9 6l6 6-6 6"/></g>
+</g>
+<g id="hint-glance" transform="translate(24 508)">
+<rect id="hint-2-bg" width="364" height="56" rx="20" fill="#FFFFFF" filter="url(#shadow-1B2150-6-6-12)"/>
+<rect x="0.5" y="0.5" width="363" height="55" rx="19.5" stroke="#E6E8F0" stroke-width="1"/>
+<circle cx="24" cy="28.0" r="4" fill="#4F6BFF"/>
+<text x="40" y="33.4" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="15" font-weight="600" fill="#12131A">今日速览已更新</text>
+<text x="155" y="33" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="13" font-weight="400" fill="#5A5F73">3 条信息差</text>
+<g id="icon-chevron-right-2" transform="translate(328 19) scale(0.75)" stroke="#9AA0B4" color="#9AA0B4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M9 6l6 6-6 6"/></g>
+</g>
+<g id="agent-orb" transform="translate(158 592)">
+<circle cx="48.0" cy="48.0" r="48.0" fill="url(#lg-orb-glass)" filter="url(#shadow-1B2150-8-8-14)"/>
+<circle cx="48.0" cy="48.0" r="47.25" stroke="url(#lg-orb-rim-96)" stroke-width="1.5"/>
+<circle cx="48.0" cy="48.0" r="47.5" stroke="#DCE0EC" stroke-opacity=".6"/>
+<circle cx="48.0" cy="51.84" r="29.759999999999998" fill="url(#rg-orb-halo)"/>
+<path id="agent-scallop" d="M48.00 21.12 L48.58 21.19 L49.16 21.40 L49.72 21.73 L50.26 22.16 L50.77 22.67 L51.26 23.22 L51.73 23.77 L52.18 24.31 L52.62 24.79 L53.06 25.19 L53.51 25.48 L53.98 25.67 L54.49 25.75 L55.03 25.71 L55.61 25.59 L56.23 25.39 L56.88 25.16 L57.57 24.90 L58.26 24.67 L58.96 24.49 L59.64 24.39 L60.30 24.38 L60.90 24.49 L61.44 24.72 L61.91 25.07 L62.31 25.54 L62.63 26.11 L62.88 26.75 L63.07 27.45 L63.22 28.17 L63.34 28.88 L63.46 29.57 L63.61 30.21 L63.79 30.77 L64.03 31.25 L64.35 31.65 L64.75 31.97 L65.23 32.21 L65.79 32.39 L66.43 32.54 L67.12 32.66 L67.83 32.78 L68.55 32.93 L69.25 33.12 L69.89 33.37 L70.46 33.69 L70.93 34.09 L71.28 34.56 L71.51 35.10 L71.62 35.70 L71.61 36.36 L71.51 37.04 L71.33 37.74 L71.10 38.43 L70.84 39.12 L70.61 39.77 L70.41 40.39 L70.29 40.97 L70.25 41.51 L70.33 42.02 L70.52 42.49 L70.81 42.94 L71.21 43.38 L71.69 43.82 L72.23 44.27 L72.78 44.74 L73.33 45.23 L73.84 45.74 L74.27 46.28 L74.60 46.84 L74.81 47.42 L74.88 48.00 L74.81 48.58 L74.60 49.16 L74.27 49.72 L73.84 50.26 L73.33 50.77 L72.78 51.26 L72.23 51.73 L71.69 52.18 L71.21 52.62 L70.81 53.06 L70.52 53.51 L70.33 53.98 L70.25 54.49 L70.29 55.03 L70.41 55.61 L70.61 56.23 L70.84 56.88 L71.10 57.57 L71.33 58.26 L71.51 58.96 L71.61 59.64 L71.62 60.30 L71.51 60.90 L71.28 61.44 L70.93 61.91 L70.46 62.31 L69.89 62.63 L69.25 62.88 L68.55 63.07 L67.83 63.22 L67.12 63.34 L66.43 63.46 L65.79 63.61 L65.23 63.79 L64.75 64.03 L64.35 64.35 L64.03 64.75 L63.79 65.23 L63.61 65.79 L63.46 66.43 L63.34 67.12 L63.22 67.83 L63.07 68.55 L62.88 69.25 L62.63 69.89 L62.31 70.46 L61.91 70.93 L61.44 71.28 L60.90 71.51 L60.30 71.62 L59.64 71.61 L58.96 71.51 L58.26 71.33 L57.57 71.10 L56.88 70.84 L56.23 70.61 L55.61 70.41 L55.03 70.29 L54.49 70.25 L53.98 70.33 L53.51 70.52 L53.06 70.81 L52.62 71.21 L52.18 71.69 L51.73 72.23 L51.26 72.78 L50.77 73.33 L50.26 73.84 L49.72 74.27 L49.16 74.60 L48.58 74.81 L48.00 74.88 L47.42 74.81 L46.84 74.60 L46.28 74.27 L45.74 73.84 L45.23 73.33 L44.74 72.78 L44.27 72.23 L43.82 71.69 L43.38 71.21 L42.94 70.81 L42.49 70.52 L42.02 70.33 L41.51 70.25 L40.97 70.29 L40.39 70.41 L39.77 70.61 L39.12 70.84 L38.43 71.10 L37.74 71.33 L37.04 71.51 L36.36 71.61 L35.70 71.62 L35.10 71.51 L34.56 71.28 L34.09 70.93 L33.69 70.46 L33.37 69.89 L33.12 69.25 L32.93 68.55 L32.78 67.83 L32.66 67.12 L32.54 66.43 L32.39 65.79 L32.21 65.23 L31.97 64.75 L31.65 64.35 L31.25 64.03 L30.77 63.79 L30.21 63.61 L29.57 63.46 L28.88 63.34 L28.17 63.22 L27.45 63.07 L26.75 62.88 L26.11 62.63 L25.54 62.31 L25.07 61.91 L24.72 61.44 L24.49 60.90 L24.38 60.30 L24.39 59.64 L24.49 58.96 L24.67 58.26 L24.90 57.57 L25.16 56.88 L25.39 56.23 L25.59 55.61 L25.71 55.03 L25.75 54.49 L25.67 53.98 L25.48 53.51 L25.19 53.06 L24.79 52.62 L24.31 52.18 L23.77 51.73 L23.22 51.26 L22.67 50.77 L22.16 50.26 L21.73 49.72 L21.40 49.16 L21.19 48.58 L21.12 48.00 L21.19 47.42 L21.40 46.84 L21.73 46.28 L22.16 45.74 L22.67 45.23 L23.22 44.74 L23.77 44.27 L24.31 43.82 L24.79 43.38 L25.19 42.94 L25.48 42.49 L25.67 42.02 L25.75 41.51 L25.71 40.97 L25.59 40.39 L25.39 39.77 L25.16 39.12 L24.90 38.43 L24.67 37.74 L24.49 37.04 L24.39 36.36 L24.38 35.70 L24.49 35.10 L24.72 34.56 L25.07 34.09 L25.54 33.69 L26.11 33.37 L26.75 33.12 L27.45 32.93 L28.17 32.78 L28.88 32.66 L29.57 32.54 L30.21 32.39 L30.77 32.21 L31.25 31.97 L31.65 31.65 L31.97 31.25 L32.21 30.77 L32.39 30.21 L32.54 29.57 L32.66 28.88 L32.78 28.17 L32.93 27.45 L33.12 26.75 L33.37 26.11 L33.69 25.54 L34.09 25.07 L34.56 24.72 L35.10 24.49 L35.70 24.38 L36.36 24.39 L37.04 24.49 L37.74 24.67 L38.43 24.90 L39.12 25.16 L39.77 25.39 L40.39 25.59 L40.97 25.71 L41.51 25.75 L42.02 25.67 L42.49 25.48 L42.94 25.19 L43.38 24.79 L43.82 24.31 L44.27 23.77 L44.74 23.22 L45.23 22.67 L45.74 22.16 L46.28 21.73 L46.84 21.40 L47.42 21.19 Z" fill="url(#lg-orb)"/>
+<circle cx="40.32" cy="38.400000000000006" r="12.48" fill="url(#rg-orb-hl)"/>
+</g>
+<g id="composer" transform="translate(24 720)">
+<rect id="composer-fill" width="364" height="56" rx="28.0" fill="#FFFFFF" filter="url(#shadow-1B2150-6-6-12)"/>
+<rect id="composer-hairline" x=".5" y=".5" width="363" height="55" rx="27.5" stroke="#E6E8F0"/>
+<rect id="composer-stroke" x=".5" y=".5" width="363" height="55" rx="27.5" stroke="url(#lg-aurora-sunrise)" stroke-width="1" stroke-opacity="0.22"/>
+<g id="btn-attach" transform="translate(8 8)">
+<circle cx="20.0" cy="20.0" r="20.0" fill="#F0F2F8"/>
+<g id="icon-plus" transform="translate(9 9) scale(0.92)" stroke="#12131A" color="#12131A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M12 5v14M5 12h14"/></g>
+</g>
+<text id="placeholder" x="60" y="33.76" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="16" font-weight="400" fill="#5A5F73">让 Helium 帮你…</text>
+<g id="btn-skills" transform="translate(268 8)">
+<circle cx="20.0" cy="20.0" r="20.0" fill="#FFFFFF"/>
+<g id="icon-sparkle" transform="translate(9 9) scale(0.92)" stroke="#4F6BFF" color="#4F6BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M12 3.5l1.8 5.2a2 2 0 0 0 1.2 1.2l5.2 1.8-5.2 1.8a2 2 0 0 0-1.2 1.2L12 20l-1.8-5.3a2 2 0 0 0-1.2-1.2L3.8 11.7 9 9.9a2 2 0 0 0 1.2-1.2z"/></g>
+</g>
+<g id="btn-mic" transform="translate(316 8)">
+<circle cx="20.0" cy="20.0" r="20.0" fill="#12131A"/>
+<g id="icon-mic" transform="translate(9 9) scale(0.92)" stroke="#FFFFFF" color="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></g>
+</g>
+</g>
+<g id="bottom-nav" transform="translate(66 800)">
+<rect width="280" height="64" rx="32" fill="#FFFFFF" filter="url(#shadow-1B2150-6-6-12)"/>
+<rect x=".5" y=".5" width="279" height="63" rx="31.5" stroke="#E6E8F0"/>
+<g id="nav-home-active" transform="translate(8 8)">
+<rect width="84" height="48" rx="24" fill="#ECEEFF"/>
+<g id="icon-home" transform="translate(12 12) scale(1)" stroke="#4F6BFF" color="#4F6BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M4 10.5l8-6.5 8 6.5V19a2 2 0 0 1-2 2h-3.5v-6h-5v6H6a2 2 0 0 1-2-2z"/></g>
+<text x="42" y="29" font-family="Google Sans Flex, Noto Sans SC, sans-serif" font-size="14" font-weight="600" fill="#4F6BFF">首页</text>
+</g>
+<g id="nav-chat" transform="translate(96 8)">
+<g id="icon-chat" transform="translate(16 12) scale(1)" stroke="#5A5F73" color="#5A5F73" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M4 6.5A3.5 3.5 0 0 1 7.5 3h9A3.5 3.5 0 0 1 20 6.5v7a3.5 3.5 0 0 1-3.5 3.5H10l-5 4v-4.4A3.5 3.5 0 0 1 4 13.5z"/></g>
+</g>
+<g id="nav-glance" transform="translate(156 8)">
+<g id="icon-glance" transform="translate(16 12) scale(1)" stroke="#5A5F73" color="#5A5F73" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><path d="M8 9h8M8 12.5h8M8 16h4.5"/></g>
+</g>
+<g id="nav-tasks" transform="translate(216 8)">
+<g id="icon-tasks" transform="translate(16 12) scale(1)" stroke="#5A5F73" color="#5A5F73" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M10 6.5h10M10 12h10M10 17.5h7"/><path d="M3.8 6.5l1.6 1.6 2.8-3M3.8 12l1.6 1.6 2.8-3"/><circle cx="5.6" cy="17.5" r="1.6"/></g>
+</g>
+</g>
+<g id="gesture-bar">
+<rect x="152.0" y="878" width="108" height="4" rx="2" fill="#12131A" fill-opacity=".85"/>
+</g>
+</svg>
