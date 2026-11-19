@@ -1,41 +1,116 @@
-# Helium · 个人 AI Agent（Android MVP）
+<div align="center">
 
-Helium 是装在手机里的个人 agent：记得你、能替你动手、在花钱 / 发送 / 删除前一定先问你。
-这个仓库是 **v0.1.0 Android MVP**：按设计稿 v0.3 实现全部主要页面，**对话是真实的流式聊天**，其余页面先用本地示例数据（界面上标「示例」），数据接口已经分好层，后续接 Helium Cloud。
+<img src="docs/assets/banner.png" alt="Helium" width="100%" />
 
-- 包名 `tech.qigai.helium` · minSdk 26 · targetSdk 35 · versionName 0.1.0
-- Kotlin + Jetpack Compose + Material 3（自定义 Helium 主题 token）
-- 许可证：MIT（字体为 SIL OFL 1.1，见 `third_party/fonts/`）
+<h3>记得你，替你动手，花钱前先问你。</h3>
 
-## 截图（设计稿）
+<p>Helium 是装在手机里的个人 AI Agent —— 对话、每日速览、定时任务、记忆与技能，<br/>每一次付款或发送都先停在一张审批卡上，等你点头。</p>
 
-| 首页 | 对话 | 速览 | 任务 |
-|---|---|---|---|
-| ![首页](design/png/01-home@2x.png) | ![对话](design/png/02-chat@2x.png) | ![速览](design/png/07-glance@2x.png) | ![任务](design/png/06-schedule-projects@2x.png) |
+<p>
+  <a href="https://github.com/QiGai77/helium/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/QiGai77/helium?style=flat-square&color=4F6BFF&label=release" /></a>
+  <a href="https://github.com/QiGai77/helium/actions/workflows/android.yml"><img alt="Build" src="https://img.shields.io/github/actions/workflow/status/QiGai77/helium/android.yml?style=flat-square&label=build" /></a>
+  <img alt="Android 8.0+" src="https://img.shields.io/badge/Android-8.0%2B-12131A?style=flat-square&logo=android&logoColor=white" />
+  <img alt="Jetpack Compose" src="https://img.shields.io/badge/Jetpack%20Compose-Material%203-4F6BFF?style=flat-square" />
+  <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/license-MIT-2FD6A0?style=flat-square" /></a>
+</p>
 
-| 任务时间线 | 审批 | 记忆与技能 | 模型与推理 |
-|---|---|---|---|
-| ![时间线](design/png/03-timeline@2x.png) | ![审批](design/png/04-approval@2x.png) | ![记忆与技能](design/png/05-memory-skills@2x.png) | ![模型](design/png/10-models@2x.png) |
+<p>
+  <a href="https://github.com/QiGai77/helium/releases/latest/download/helium.apk"><b>⬇ 下载 APK</b></a>
+  &nbsp;·&nbsp; <a href="#-快速开始">快速开始</a>
+  &nbsp;·&nbsp; <a href="design/README.md">设计稿</a>
+  &nbsp;·&nbsp; <a href="docs/PLAN.md">产品方案</a>
+</p>
 
-更多：`design/png/00-components@2x.png`（组件表）、`08-glance-custom`（自定义卡 sheet）、`09-me`（我的）。设计说明见 `design/README.md`、`docs/DESIGN.md`。
+</div>
 
-## 功能
+<br/>
 
-| 页面 | 内容 | 数据 |
-|---|---|---|
-| 首页 | 日期 + 问候、「现在最要紧」英雄卡（事件插画）、2 条提示（待你确认 / 今日速览）、Agent 光球、输入胶囊 | 示例；输入胶囊直接发起真实对话 |
-| 对话 | 流式回复（Markdown、思考过程折叠）、停止 ↔ 发送同位且不丢草稿、出错可重试、顶部切换模型；顶部 live 任务卡（示例）可进入任务时间线 | **真实** |
-| 速览 | 今日要点（来源筛选：全部 / X / 记忆 / 邮件 / 网页）、X 热帖、我的卡片 bento（航班 / 高铁 / 天气 / 预算 / AI 自定义股价卡 / 包裹叠卡）、「让 Helium 做一张卡」sheet（输入 → 预览 → 尺寸 → 刷新频率 → 添加） | 示例 |
-| 任务 | 周历、定时任务（可开关）、项目叠卡（进度环），点项目进入时间线 | 示例 |
-| 我的 | 头像入口；账户 / 能力 / 记忆与文件 / 安全 / 通用分组；关于页内含字体许可证 | 示例 + 真实模型设置 |
-| 模型与推理 | OpenCode Go（默认）/ Gemini API / 自带 OpenAI 兼容 Base URL + Key；模型下拉、刷新模型列表、手填模型 ID | **真实** |
-| 记忆与技能 | 记忆胶囊（添加 / 长按遗忘）、技能卡开关 | 示例（仅本次运行） |
-| 审批 | 「待你确认」叠卡，批准 / 拒绝（只在本地，不会真的付款或发送） | 示例 |
-| 任务时间线 | 进度条、完成 / 进行中 / 等你审批 / 未开始四种节点，「去审批」跳审批页 | 示例 |
+<img src="docs/assets/showcase.png" alt="首页 · 速览 · 对话 · 任务 · 我的" width="100%" />
 
-底部导航：**首页 · 对话 · 速览 · 任务**；「我的」在各根页右上角头像。对话页按设计为全屏（无底栏）。
+## ✦ 它能做什么
 
-### 模型接入
+<table>
+<tr>
+<td width="50%" valign="top">
+
+**🏠 首页 —— 只放现在最要紧的事**<br/>
+一张按事件自动配插画的英雄卡（航班、高铁、天气、快递…），加上「待你确认」和「速览已更新」两条提示。其余的，都不打扰你。
+
+</td>
+<td width="50%" valign="top">
+
+**💬 对话 —— 真的能聊，也看得见它在做什么**<br/>
+流式回复、思考过程可折叠、停止与发送同一个按钮且不丢草稿。Agent 动手时会出现实时操作卡，可以接管、暂停，点进去看完整时间线。
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+**📰 速览 —— 每天的信息差，主要来自 X**<br/>
+今日要点、X 热帖，每条都写着「为什么推给你」；按来源筛选（X / 记忆 / 邮件 / 网页）。一句话就能让 Helium 生成一张属于你的自定义卡。
+
+</td>
+<td valign="top">
+
+**🗓 任务 —— 定时与项目**<br/>
+周历、每日早报、账单检查、值机提醒；项目叠卡带进度环，点开就是 Agent 的执行时间线。
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+**🛡 审批 —— 花钱、发送之前一定先问你**<br/>
+金额、收货地址、付款卡同屏可见；未经你同意，Helium 不会付款。
+
+</td>
+<td valign="top">
+
+**🧠 我的 —— 记忆、技能、连接器、模型**<br/>
+头像进入。记忆可增删可遗忘；模型默认 OpenCode Go，也支持 Gemini API 与任意 OpenAI 兼容服务；Key 用 Android Keystore 加密保存。
+
+</td>
+</tr>
+</table>
+
+<img src="docs/assets/screens-more.png" alt="任务时间线 · 审批 · 自定义卡 · 模型与推理 · 记忆与技能" width="100%" />
+
+## 🚀 快速开始
+
+1. 从 [Releases](https://github.com/QiGai77/helium/releases/latest) 下载 `helium.apk` 并安装（Android 8.0+）。
+2. 在 [opencode.ai](https://opencode.ai/console/go) 开通 Go 并复制 API Key。
+3. 打开 App → 右上角头像 **我的** → **模型与推理** → OpenCode Go → 填入 Key。
+4. 回到首页，在输入胶囊里说一句话。
+
+> [!NOTE]
+> v0.1 里只有**对话与模型设置是真实的**，其余页面使用标注「示例」的本地数据；聊天记录只保存在内存中。
+
+> [!IMPORTANT]
+> OpenCode Go 官方说明它面向编码类 agent 流量并做滥用监控。用于通用个人助理前，请先确认符合其条款；也可以改用 Gemini API 或自带 OpenAI 兼容服务。
+
+## 🎨 设计
+
+设计语言取自氦的发射光谱：大面积中性底，一屏只留一个英雄渐变，唯一强调色 `#4F6BFF`，玻璃质感图标，圆角 20 / 28 / 32，8dp 网格。全部屏幕都是**可编辑的矢量 SVG**（真文本、语义图层），直接拖进 Figma 即可修改。
+
+| | |
+|---|---|
+| 设计稿与 Figma 导入说明 | [`design/README.md`](design/README.md) |
+| 组件与 Token 表 | [`design/png/00-components@2x.png`](design/png/00-components@2x.png) |
+| 设计语言与参考 | [`docs/DESIGN.md`](docs/DESIGN.md) |
+| 产品与技术方案 · 借鉴仓库 | [`docs/PLAN.md`](docs/PLAN.md) · [`docs/repos.md`](docs/repos.md) |
+
+## 🗺 路线图
+
+- [x] v0.1 — 全部主要页面、真实流式对话、三种模型接入、Keystore 凭据保险箱、CI 自动发版
+- [ ] 对话与记忆持久化、语音输入、附件
+- [ ] 速览接入真实数据源（X 为主，加邮件 / 日历 / 网页）与 AI 自定义卡刷新
+- [ ] Agent 工具调用：浏览器代理、实时操作卡、审批闭环
+- [ ] 定时任务与 Home 面板后台刷新
+
+<details>
+<summary><b>🔌 模型接入细节</b></summary>
+
 
 | 提供方 | 协议 | 地址 |
 |---|---|---|
@@ -58,21 +133,14 @@ OpenCode Go 要求每个会话带稳定的 `x-opencode-session` 头，并希望�
 
 API Key 只保存在本机「凭据保险箱」：AES-256-GCM 加密，密钥在 Android Keystore 中，SharedPreferences 里只有密文；界面上永远不回显。
 
-## 配置 OpenCode Go Key
 
-1. 在 opencode.ai 控制台开通 Go 订阅并创建 API Key。
-2. 打开 App → 右上角头像「我的」→「模型与推理」→ OpenCode Go 卡片 →「填入 OpenCode Go API Key」，粘贴后保存。
-3. 在同一卡片里点选模型（默认 GLM-5.3），或在对话页标题下的模型名处切换。
-4. 回到首页，在输入胶囊里说一句话即可开始流式对话。
+</details>
 
-> 注意：OpenCode Go 官方说明它面向编码类 agent 的流量并会做滥用监控；把它用于通用个人助理对话前，请自行确认符合其使用条款。Gemini API 或自带 OpenAI 兼容服务可作为替代。
+<details>
+<summary><b>🛠 构建与签名</b></summary>
 
-Gemini：同一页面「填入你的 Gemini API Key」（Google AI Studio 创建），模型默认 `gemini-flash-latest`，可选或手填。
-自带 Key：填 Base URL（到 `/v1` 为止）、API Key、模型名。
 
-## 构建
-
-### GitHub Actions（推荐）
+#### GitHub Actions（推荐）
 
 `.github/workflows/android.yml`：
 
@@ -88,7 +156,7 @@ Gemini：同一页面「填入你的 Gemini API Key」（Google AI Studio 创建
 | `HELIUM_KEY_ALIAS` | key alias |
 | `HELIUM_KEY_PASSWORD` | key 密码 |
 
-### 本地
+#### 本地
 
 ```bash
 # 需要 JDK 17 和 Android SDK（platforms;android-35），local.properties 里写 sdk.dir=...
@@ -98,7 +166,12 @@ Gemini：同一页面「填入你的 Gemini API Key」（Google AI Studio 创建
 
 关键版本：AGP 8.7.3 · Gradle 8.9 · Kotlin 2.0.21（Compose compiler plugin）· Compose BOM 2024.12.01 · navigation-compose 2.8.5 · lifecycle 2.8.7 · activity-compose 1.9.3 · OkHttp 4.12.0。
 
-## 代码结构
+
+</details>
+
+<details>
+<summary><b>📁 代码结构</b></summary>
+
 
 ```
 app/src/main/java/tech/qigai/helium/
@@ -124,16 +197,11 @@ app/src/main/java/tech/qigai/helium/
 python3 tools/gen_kotlin.py design/src app/src/main/java/tech/qigai/helium/ui
 ```
 
-## 目录
 
-- `design/` 设计稿 v0.3（SVG、2x PNG、README、生成脚本 `src/`）
-- `docs/` 产品方案 `PLAN.md`、设计说明 `DESIGN.md`、借鉴仓库 `repos.md`
-- `third_party/fonts/` 字体许可证
-- `keystore/` 公开 CI 签名
+</details>
 
-## 已知限制（v0.1）
+## 📄 许可证
 
-- 除对话与模型设置外都是示例数据；记忆 / 自定义卡的增删只保存在本次运行。
-- 对话历史只在内存中，退出 App 即清空；暂不支持附件、语音、工具调用。
-- 只有浅色主题；未开启动态取色（保持单一强调色）。
-- Release 未开启 R8 混淆 / 压缩，APK 约 20+ MB（主要是完整的 Noto Sans SC 可变字体）。
+代码以 [MIT](LICENSE) 发布。字体 Noto Sans SC 与 Google Sans Flex 使用 SIL OFL 1.1，见 [`third_party/fonts/`](third_party/fonts/)。
+
+<div align="center"><sub>Made with ✦ by <a href="https://github.com/QiGai77">QiGai77</a></sub></div>
