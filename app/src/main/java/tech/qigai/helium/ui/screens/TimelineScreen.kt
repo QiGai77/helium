@@ -1,5 +1,6 @@
 package tech.qigai.helium.ui.screens
 
+import tech.qigai.helium.data.model.AgentRun
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border

@@ -2,6 +2,7 @@
 
 package tech.qigai.helium.ui.screens
 
+import tech.qigai.helium.data.model.GlanceToday
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
