@@ -1,11 +1,8 @@
-package tech.qigai.helium.data.sample
+package tech.qigai.helium.data.model
 
 import tech.qigai.helium.ui.illo.IlloKind
 
-/*
- * Domain models for everything except chat. In v0.1 every value comes from [SampleData] (示例数据);
- * the *Source interfaces are the seams where a real backend (Helium Cloud / AG-UI) plugs in later.
- */
+/* UI models for the screens. Values come from Room repositories and, later, real data sources. */
 
 enum class Source(val label: String) { ALL("全部"), X("X"), MEMORY("记忆"), MAIL("邮件"), WEB("网页") }
 
@@ -100,20 +97,3 @@ data class AgentRun(val title: String, val status: String, val done: Int, val to
 data class LiveStep(val text: String, val done: Boolean)
 
 data class LiveRun(val title: String, val elapsed: String, val steps: List<LiveStep>)
-
-interface HomeSource { fun summary(): HomeSummary }
-interface GlanceSource { fun today(): GlanceToday }
-interface TaskSource {
-    fun scheduled(): List<ScheduledTask>
-    fun projects(): List<Project>
-}
-interface MemorySource {
-    fun memories(): List<MemoryItem>
-    fun skills(): List<Skill>
-    fun memoryCount(): Int
-}
-interface ApprovalSource { fun pending(): List<Approval> }
-interface RunSource {
-    fun timeline(): AgentRun
-    fun live(): LiveRun
-}

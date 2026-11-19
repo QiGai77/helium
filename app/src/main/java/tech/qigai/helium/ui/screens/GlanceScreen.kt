@@ -57,13 +57,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
-import tech.qigai.helium.data.sample.CardSize
-import tech.qigai.helium.data.sample.GlanceCard
-import tech.qigai.helium.data.sample.HeroEvent
-import tech.qigai.helium.data.sample.Highlight
-import tech.qigai.helium.data.sample.Source
-import tech.qigai.helium.data.sample.Sources
-import tech.qigai.helium.data.sample.XPost
+import tech.qigai.helium.data.model.CardSize
+import tech.qigai.helium.data.model.GlanceCard
+import tech.qigai.helium.data.model.HeroEvent
+import tech.qigai.helium.data.model.Highlight
+import tech.qigai.helium.data.model.Source
+import tech.qigai.helium.data.model.XPost
 import tech.qigai.helium.ui.components.ButtonKind
 import tech.qigai.helium.ui.components.GlassIcon
 import tech.qigai.helium.ui.components.GlassShape
@@ -72,7 +71,6 @@ import tech.qigai.helium.ui.components.HeTag
 import tech.qigai.helium.ui.components.HeroSurface
 import tech.qigai.helium.ui.components.Illo
 import tech.qigai.helium.ui.components.RoundIconButton
-import tech.qigai.helium.ui.components.SampleBadge
 import tech.qigai.helium.ui.components.SectionHeader
 import tech.qigai.helium.ui.components.TagKind
 import tech.qigai.helium.ui.components.WhiteCard
@@ -83,10 +81,25 @@ import tech.qigai.helium.ui.theme.HeColors
 import tech.qigai.helium.ui.theme.HeNum
 import tech.qigai.helium.ui.theme.HeShapes
 
-/** 07 速览 — today's highlights, an X post, and the 「我的卡片」 bento. All sample data in v0.1. */
+/** 07 速览 — empty until real sources (weather, calendar, RSS, X) are connected in M6. */
 @Composable
-fun GlanceScreen(onOpenMe: () -> Unit, toast: (String) -> Unit) {
-    val today = remember { Sources.glance.today() }
+fun GlanceScreen(today: GlanceToday?, onOpenMe: () -> Unit, toast: (String) -> Unit) {
+    if (today == null) {
+        Column(Modifier.fillMaxSize()) {
+            RootHeader(title = "今日速览", eyebrow = todayLabel(), onAvatar = onOpenMe)
+            EmptyState(
+                "速览还没有数据源",
+                "接入天气、日历、RSS 和 X 之后，这里每天会整理出和你有关的要点，并写明为什么推给你。",
+                Modifier.weight(1f),
+            )
+        }
+        return
+    }
+    GlanceContent(today, onOpenMe, toast)
+}
+
+@Composable
+private fun GlanceContent(today: GlanceToday, onOpenMe: () -> Unit, toast: (String) -> Unit) {
     var source by remember { mutableStateOf(Source.ALL) }
     var sheet by remember { mutableStateOf(false) }
     val customCards = remember { mutableStateListOf<GlanceCard.Custom>() }
@@ -99,7 +112,6 @@ fun GlanceScreen(onOpenMe: () -> Unit, toast: (String) -> Unit) {
         )
         Row(Modifier.padding(horizontal = 24.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("从 X、记忆、邮件和网页为你整理 · ${today.updatedAt} 更新", color = HeColors.Ink2, fontSize = 13.sp, modifier = Modifier.weight(1f))
-            SampleBadge()
         }
         Row(
             Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 10.dp),
@@ -147,7 +159,7 @@ fun GlanceScreen(onOpenMe: () -> Unit, toast: (String) -> Unit) {
             onAdd = { card ->
                 customCards += card
                 sheet = false
-                toast("已添加到速览（示例，仅保存在本次会话）")
+                toast("已添加到速览")
             },
         )
     }
@@ -469,7 +481,7 @@ private fun previewFor(prompt: String, size: CardSize, refresh: String, variant:
     return GlanceCard.Custom(
         id = "custom-" + System.nanoTime(),
         title = "X · $topic 热帖",
-        meta = "$refresh 更新 · 示例预览",
+        meta = "$refresh 更新 · 预览",
         lines = pools[variant % pools.size],
         size = size,
     )
@@ -534,8 +546,6 @@ private fun CustomCardSheet(onDismiss: () -> Unit, onAdd: (GlanceCard.Custom) ->
             Spacer(Modifier.height(20.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("预览", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = HeColors.Ink2)
-                Spacer(Modifier.width(8.dp))
-                SampleBadge()
             }
             Spacer(Modifier.height(10.dp))
             WhiteCard(Modifier.fillMaxWidth(), shadow = false) { CustomCardBody(preview) }

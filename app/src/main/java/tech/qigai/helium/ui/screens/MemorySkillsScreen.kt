@@ -43,10 +43,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import tech.qigai.helium.data.sample.MemoryItem
-import tech.qigai.helium.data.sample.Skill
-import tech.qigai.helium.data.sample.SkillIcon
-import tech.qigai.helium.data.sample.Sources
+import tech.qigai.helium.data.model.MemoryItem
+import tech.qigai.helium.data.model.Skill
+import tech.qigai.helium.data.model.SkillIcon
 import tech.qigai.helium.ui.components.ButtonKind
 import tech.qigai.helium.ui.components.GlassIcon
 import tech.qigai.helium.ui.components.GlassShape
@@ -54,7 +53,6 @@ import tech.qigai.helium.ui.components.HePillButton
 import tech.qigai.helium.ui.components.HeTag
 import tech.qigai.helium.ui.components.HeToggle
 import tech.qigai.helium.ui.components.HeroSurface
-import tech.qigai.helium.ui.components.SampleBadge
 import tech.qigai.helium.ui.components.TagKind
 import tech.qigai.helium.ui.components.WhiteCard
 import tech.qigai.helium.ui.components.heCardShadow
@@ -68,10 +66,15 @@ private enum class MemTab(val label: String) { ALL("全部"), MEMORY("记忆"), 
 /** 05 记忆与技能 — memory pills (add / long-press to forget) + skill cards with toggles. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun MemorySkillsScreen(onBack: () -> Unit, toast: (String) -> Unit) {
+fun MemorySkillsScreen(
+    memories: List<MemoryItem>,
+    skills: List<Skill>,
+    onAdd: (String) -> Unit,
+    onForget: (MemoryItem) -> Unit,
+    onBack: () -> Unit,
+    toast: (String) -> Unit,
+) {
     var tab by remember { mutableStateOf(MemTab.ALL) }
-    val memories = remember { mutableStateListOf<MemoryItem>().apply { addAll(Sources.memory.memories()) } }
-    val skills = remember { Sources.memory.skills() }
     val skillOn = remember { mutableStateMapOf<String, Boolean>().apply { skills.forEach { put(it.id, it.enabled) } } }
     var adding by remember { mutableStateOf(false) }
     var forgetting by remember { mutableStateOf<MemoryItem?>(null) }
@@ -92,9 +95,7 @@ fun MemorySkillsScreen(onBack: () -> Unit, toast: (String) -> Unit) {
             if (tab != MemTab.SKILLS) {
                 Spacer(Modifier.height(20.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("长按一条可遗忘", fontSize = 12.sp, color = HeColors.Ink3)
-                    Spacer(Modifier.width(8.dp))
-                    SampleBadge()
+                    Text(if (memories.isEmpty()) "还没有记忆：在对话里告诉 Helium 你的偏好，或点「+ 添加」" else "长按一条可遗忘", fontSize = 12.sp, color = HeColors.Ink3)
                 }
                 Spacer(Modifier.height(10.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -139,6 +140,9 @@ fun MemorySkillsScreen(onBack: () -> Unit, toast: (String) -> Unit) {
                     Text("全部 ${skills.size} 个", fontSize = 14.sp, color = HeColors.Ink2)
                 }
                 Spacer(Modifier.height(16.dp))
+                if (skills.isEmpty()) {
+                    EmptyState("还没有技能", "技能是写给 Helium 的说明书（例如“写周报的格式”）。自建技能在下一个版本接入。")
+                }
                 skills.chunked(2).forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         row.forEach { s ->
@@ -168,7 +172,7 @@ fun MemorySkillsScreen(onBack: () -> Unit, toast: (String) -> Unit) {
             },
             confirmButton = {
                 TextButton(onClick = {
-                    memories += MemoryItem("u" + System.nanoTime(), text.trim())
+                    onAdd(text.trim())
                     adding = false
                 }, enabled = text.isNotBlank()) { Text("记住") }
             },
@@ -182,7 +186,7 @@ fun MemorySkillsScreen(onBack: () -> Unit, toast: (String) -> Unit) {
             title = { Text("遗忘这条记忆？") },
             text = { Text("「${m.text}」会被全部删除，并生成一条「不再保存」规则。") },
             confirmButton = {
-                TextButton(onClick = { memories.remove(m); forgetting = null; toast("已遗忘") }) { Text("遗忘", color = HeColors.CoralInk) }
+                TextButton(onClick = { onForget(m); forgetting = null; toast("已遗忘") }) { Text("遗忘", color = HeColors.CoralInk) }
             },
             dismissButton = { TextButton(onClick = { forgetting = null }) { Text("取消") } },
         )

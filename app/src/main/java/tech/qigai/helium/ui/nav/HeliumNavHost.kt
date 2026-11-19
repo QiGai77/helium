@@ -41,6 +41,16 @@ import tech.qigai.helium.ui.components.HeBottomNav
 import tech.qigai.helium.ui.components.NavTab
 import tech.qigai.helium.ui.components.rememberToast
 import tech.qigai.helium.ui.screens.ApprovalScreen
+import tech.qigai.helium.ui.screens.AuditScreen
+import tech.qigai.helium.ui.screens.timelineFrom
+import tech.qigai.helium.agent.AgentState
+import tech.qigai.helium.data.model.MemoryItem
+import tech.qigai.helium.data.model.ScheduledTask
+import tech.qigai.helium.data.model.TaskIcon
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import tech.qigai.helium.ui.screens.ChatScreen
 import tech.qigai.helium.ui.screens.ChatViewModel
 import tech.qigai.helium.ui.screens.GlanceScreen
@@ -62,6 +72,7 @@ object Routes {
     const val MEMORY = "memory"
     const val APPROVAL = "approval"
     const val TIMELINE = "timeline"
+    const val AUDIT = "audit"
 }
 
 /** Tabs that show the bottom nav. 对话 is full-screen (design 02: 对话详情页无底栏); 记忆与技能 shows it unselected. */
@@ -80,6 +91,16 @@ fun HeliumNavHost(nav: NavHostController = rememberNavController()) {
     val chatVm: ChatViewModel = viewModel()
     val settings by app.settings.state.collectAsStateWithLifecycle()
     val toast = rememberToast()
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val pending by app.approvals.observePending().collectAsState(initial = emptyList())
+    val memories by app.memories.observeAll().collectAsState(initial = emptyList())
+    val grants by app.grants.observeAll().collectAsState(initial = emptyList())
+    val audit by app.audit.observeRecent().collectAsState(initial = emptyList())
+    val weekAgo = remember { System.currentTimeMillis() - 7L * 24 * 3600_000 }
+    val auditWeek by app.audit.observeCountSince(weekAgo).collectAsState(initial = 0)
+    val taskRows by app.tasks.observeAll().collectAsState(initial = emptyList())
+    val conversations by chatVm.conversations.collectAsState()
     val backStack by nav.currentBackStackEntryAsState()
     val route = backStack?.destination?.route
     val navVisible = showsNav(route) && !WindowInsets.isImeVisible
@@ -117,6 +138,8 @@ fun HeliumNavHost(nav: NavHostController = rememberNavController()) {
                             open(Routes.CHAT)
                         },
                         agentRunning = chatVm.running.value,
+                        pending = pending,
+                        lastConversation = conversations.firstOrNull()?.title,
                         onOpenChat = { open(Routes.CHAT) },
                         onOpenGlance = { goTab(NavTab.GLANCE) },
                         onOpenApproval = { open(Routes.APPROVAL) },
@@ -135,9 +158,19 @@ fun HeliumNavHost(nav: NavHostController = rememberNavController()) {
                         toast = toast,
                     )
                 }
-                composable(Routes.GLANCE) { GlanceScreen(onOpenMe = { open(Routes.ME) }, toast = toast) }
+                composable(Routes.GLANCE) { GlanceScreen(today = null, onOpenMe = { open(Routes.ME) }, toast = toast) }
                 composable(Routes.TASKS) {
-                    TasksScreen(onOpenMe = { open(Routes.ME) }, onOpenTimeline = { open(Routes.TIMELINE) }, toast = toast)
+                    TasksScreen(
+                        tasks = taskRows.map { t ->
+                            ScheduledTask(t.id, t.title, "${when (t.kind) { "DAILY" -> "每天"; "WEEKLY" -> "每周"; else -> "一次" }} ${t.timeOfDay}", TaskIcon.SUN, t.enabled,
+                                (1..7).filter { d -> t.kind != "WEEKLY" || ((t.weekdays shr (d - 1)) and 1) == 1 }.toSet())
+                        },
+                        projects = emptyList(),
+                        onToggle = { id, on -> scope.launch { app.tasks.setEnabled(id, on) } },
+                        onOpenMe = { open(Routes.ME) },
+                        onOpenTimeline = { open(Routes.TIMELINE) },
+                        toast = toast,
+                    )
                 }
                 composable(Routes.ME) {
                     MeScreen(
@@ -147,16 +180,70 @@ fun HeliumNavHost(nav: NavHostController = rememberNavController()) {
                         onOpenModels = { open(Routes.MODELS) },
                         onOpenMemory = { open(Routes.MEMORY) },
                         onOpenApproval = { open(Routes.APPROVAL) },
+                        onOpenAudit = { open(Routes.AUDIT) },
+                        memoryCount = memories.size,
+                        auditCount = auditWeek,
+                        grantCount = grants.size,
                         toast = toast,
                     )
                 }
                 composable(Routes.MODELS) {
                     ModelsScreen(settings = settings, repo = app.settings, onBack = { nav.popBackStack() }, toast = toast)
                 }
-                composable(Routes.MEMORY) { MemorySkillsScreen(onBack = { nav.popBackStack() }, toast = toast) }
-                composable(Routes.APPROVAL) { ApprovalScreen(onClose = { nav.popBackStack() }, toast = toast) }
+                composable(Routes.MEMORY) {
+                    MemorySkillsScreen(
+                        memories = memories.map { MemoryItem(it.id.toString(), it.text, it.inferred) },
+                        skills = emptyList(),
+                        onAdd = { text -> scope.launch { app.memories.addManual(text, "其他") } },
+                        onForget = { m -> scope.launch { m.id.toLongOrNull()?.let { app.memories.forget(it) } } },
+                        onBack = { nav.popBackStack() },
+                        toast = toast,
+                    )
+                }
+                composable(Routes.APPROVAL) {
+                    ApprovalScreen(
+                        pending = pending,
+                        onDecide = { id, approved, grant ->
+                            scope.launch {
+                                val live = app.approvals.decide(id, approved, grant)
+                                toast(if (!live) "这一步已经失效（任务已停止）" else if (approved) "已批准，Helium 继续执行" else "已拒绝，Helium 不会执行这一步")
+                            }
+                        },
+                        onClose = { nav.popBackStack() },
+                    )
+                }
                 composable(Routes.TIMELINE) {
-                    TimelineScreen(onBack = { nav.popBackStack() }, onOpenApproval = { open(Routes.APPROVAL) }, toast = toast)
+                    val st = chatVm.state.value
+                    TimelineScreen(
+                        run = timelineFrom(chatVm.events, chatVm.running.value, st == AgentState.AWAITING_APPROVAL),
+                        running = chatVm.running.value,
+                        onStop = chatVm::stop,
+                        onBack = { nav.popBackStack() },
+                        onOpenApproval = { open(Routes.APPROVAL) },
+                        toast = toast,
+                    )
+                }
+                composable(Routes.AUDIT) {
+                    AuditScreen(
+                        grants = grants,
+                        audit = audit,
+                        onRevoke = { id -> scope.launch { app.grants.revoke(id); toast("已撤销，下次会重新询问") } },
+                        onExport = {
+                            scope.launch {
+                                val json = org.json.JSONArray(app.audit.all().map { a ->
+                                    org.json.JSONObject().put("at", a.at).put("conversationId", a.conversationId).put("kind", a.kind)
+                                        .put("tool", a.tool).put("target", a.target).put("detail", a.detail)
+                                }).toString(2)
+                                val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                    type = "application/json"
+                                    putExtra(android.content.Intent.EXTRA_SUBJECT, "helium-audit.json")
+                                    putExtra(android.content.Intent.EXTRA_TEXT, json)
+                                }
+                                context.startActivity(android.content.Intent.createChooser(send, "导出审计日志"))
+                            }
+                        },
+                        onBack = { nav.popBackStack() },
+                    )
                 }
             }
             AnimatedVisibility(

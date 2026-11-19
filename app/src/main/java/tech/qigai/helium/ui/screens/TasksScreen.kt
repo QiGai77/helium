@@ -31,16 +31,14 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import tech.qigai.helium.data.sample.Project
-import tech.qigai.helium.data.sample.ScheduledTask
-import tech.qigai.helium.data.sample.Sources
-import tech.qigai.helium.data.sample.TaskIcon
+import tech.qigai.helium.data.model.Project
+import tech.qigai.helium.data.model.ScheduledTask
+import tech.qigai.helium.data.model.TaskIcon
 import tech.qigai.helium.ui.components.GlassIcon
 import tech.qigai.helium.ui.components.HeTag
 import tech.qigai.helium.ui.components.HeToggle
 import tech.qigai.helium.ui.components.HeroSurface
 import tech.qigai.helium.ui.components.RoundIconButton
-import tech.qigai.helium.ui.components.SampleBadge
 import tech.qigai.helium.ui.components.SectionHeader
 import tech.qigai.helium.ui.components.TagKind
 import tech.qigai.helium.ui.components.WhiteCard
@@ -60,10 +58,15 @@ fun TaskIcon.vector() = when (this) {
 
 /** 06 任务 — week strip + scheduled tasks + stacked project cards. */
 @Composable
-fun TasksScreen(onOpenMe: () -> Unit, onOpenTimeline: () -> Unit, toast: (String) -> Unit) {
-    val tasks = remember { Sources.tasks.scheduled() }
-    val projects = remember { Sources.tasks.projects() }
-    val enabled = remember { mutableStateMapOf<String, Boolean>().apply { tasks.forEach { put(it.id, it.enabled) } } }
+fun TasksScreen(
+    tasks: List<ScheduledTask>,
+    projects: List<Project>,
+    onToggle: (String, Boolean) -> Unit,
+    onOpenMe: () -> Unit,
+    onOpenTimeline: () -> Unit,
+    toast: (String) -> Unit,
+) {
+    val enabled = tasks.associate { it.id to it.enabled }
     val today = LocalDate.now()
     val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
     val sunday = monday.plusDays(6)
@@ -73,7 +76,7 @@ fun TasksScreen(onOpenMe: () -> Unit, onOpenTimeline: () -> Unit, toast: (String
             title = "任务",
             inlineSubtitle = "定时与项目",
             onAvatar = onOpenMe,
-            actions = { RoundIconButton(HeIcons.Plus, { toast("新建定时任务即将支持") }, contentDescription = "新建") },
+            actions = { RoundIconButton(HeIcons.Plus, { toast("在对话里描述你要的定时任务即可（定时执行在下一个版本接入）") }, contentDescription = "新建") },
         )
         Spacer(Modifier.height(24.dp))
         Row(Modifier.padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -87,12 +90,19 @@ fun TasksScreen(onOpenMe: () -> Unit, onOpenTimeline: () -> Unit, toast: (String
         WeekStrip(today.dayOfWeek.value, tasks.filter { enabled[it.id] == true }, Modifier.padding(horizontal = 24.dp))
         Spacer(Modifier.height(16.dp))
         Column(Modifier.padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            tasks.forEach { t -> TaskRow(t, enabled[t.id] == true) { enabled[t.id] = it } }
+            if (tasks.isEmpty()) {
+                EmptyState("还没有定时任务", "在对话里说「每天早上 8 点给我发早报」，Helium 会把它建成定时任务。")
+            }
+            tasks.forEach { t -> TaskRow(t, enabled[t.id] == true) { onToggle(t.id, it) } }
         }
         Spacer(Modifier.height(28.dp))
         SectionHeader("项目", Modifier.padding(horizontal = 24.dp), action = "新建", actionIcon = HeIcons.Plus, onAction = { toast("新建项目即将支持") })
         Spacer(Modifier.height(12.dp))
-        ProjectStack(projects, Modifier.padding(horizontal = 24.dp), onOpenTimeline)
+        if (projects.isEmpty()) {
+            EmptyState("还没有项目", "多步骤、多天的事（旅行、搬家、求职）会成为一个项目，有自己的对话、文件和待办。")
+        } else {
+            ProjectStack(projects, Modifier.padding(horizontal = 24.dp), onOpenTimeline)
+        }
         Spacer(Modifier.height(24.dp))
     }
 }
@@ -164,8 +174,6 @@ private fun ProjectStack(projects: List<Project>, modifier: Modifier, onOpen: ()
                     GlassIcon(HeIcons.Home, size = 32.dp, onHero = true)
                     Spacer(Modifier.width(12.dp))
                     Text(front.title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.width(8.dp))
-                    SampleBadge(onHero = true)
                 }
                 Spacer(Modifier.weight(1f))
                 Text("${front.todo} 项待办", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)

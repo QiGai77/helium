@@ -28,6 +28,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,8 +49,10 @@ import androidx.compose.ui.unit.sp
 import tech.qigai.helium.data.settings.LlmSettings
 import tech.qigai.helium.data.llm.ProviderId
 import tech.qigai.helium.data.llm.Role
-import tech.qigai.helium.data.sample.LiveRun
-import tech.qigai.helium.data.sample.Sources
+import tech.qigai.helium.agent.AgentEvent
+import tech.qigai.helium.agent.GrantScope
+import tech.qigai.helium.agent.Risk
+import tech.qigai.helium.agent.ToolCall
 import tech.qigai.helium.ui.components.ButtonKind
 import tech.qigai.helium.ui.components.Composer
 import tech.qigai.helium.ui.components.Dot
@@ -57,7 +60,6 @@ import tech.qigai.helium.ui.components.FlowerAvatar
 import tech.qigai.helium.ui.components.HePillButton
 import tech.qigai.helium.ui.components.MarkdownText
 import tech.qigai.helium.ui.components.RoundIconButton
-import tech.qigai.helium.ui.components.SampleBadge
 import tech.qigai.helium.ui.components.heCardShadow
 import tech.qigai.helium.ui.icons.HeIcons
 import tech.qigai.helium.ui.theme.HeButton
@@ -67,9 +69,9 @@ import tech.qigai.helium.ui.theme.HeShapes
 import tech.qigai.helium.ui.theme.ambientFloat
 import java.time.format.DateTimeFormatter
 
-private val HM = DateTimeFormatter.ofPattern("HH:mm")
+private val DAY_HM = DateTimeFormatter.ofPattern("M月d日 HH:mm")
 
-/** 02 对话 — real streaming chat; the live-run card is sample data and opens the task timeline. */
+/** 02 对话 — agent chat: streamed replies, tool steps and inline approval cards, all from the event stream. */
 @Composable
 fun ChatScreen(
     vm: ChatViewModel,
@@ -84,8 +86,11 @@ fun ChatScreen(
     val listState = rememberLazyListState()
     var menu by remember { mutableStateOf(false) }
     var modelMenu by remember { mutableStateOf(false) }
-    val last = vm.messages.lastOrNull()
-    LaunchedEffect(vm.messages.size, last?.text?.length, last?.reasoning?.length) {
+    var history by remember { mutableStateOf(false) }
+    val streamingText by vm.streamingText
+    val streamingReasoning by vm.streamingReasoning
+    val items = chatItems(vm.events)
+    LaunchedEffect(vm.events.size, streamingText.length, streamingReasoning.length) {
         val count = listState.layoutInfo.totalItemsCount
         if (count > 0) listState.scrollToItem(count - 1)
     }
@@ -126,8 +131,9 @@ fun ChatScreen(
                     RoundIconButton(HeIcons.More, { menu = true }, contentDescription = "更多")
                     DropdownMenu(menu, onDismissRequest = { menu = false }) {
                         DropdownMenuItem(text = { Text("新对话") }, onClick = { menu = false; vm.newConversation() })
+                        DropdownMenuItem(text = { Text("历史对话") }, onClick = { menu = false; history = true })
+                        DropdownMenuItem(text = { Text("本对话时间线") }, onClick = { menu = false; onOpenTimeline() })
                         DropdownMenuItem(text = { Text("模型与推理") }, onClick = { menu = false; onOpenModels() })
-                        DropdownMenuItem(text = { Text("任务时间线（示例）") }, onClick = { menu = false; onOpenTimeline() })
                     }
                 }
             },
@@ -139,22 +145,36 @@ fun ChatScreen(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            item(key = "live") {
-                LiveRunCard(Sources.runs.live(), onOpen = onOpenTimeline, toast = toast)
-            }
-            if (vm.messages.isEmpty()) {
+            if (vm.events.isEmpty()) {
                 item(key = "empty") { EmptyChatHint(settings) }
             } else {
                 item(key = "stamp") {
                     Text(
-                        "今天 " + vm.messages.first().at.format(HM),
+                        ChatViewModel.localTime(vm.events.first().at).format(DAY_HM),
                         color = HeColors.Ink3, fontSize = 13.sp, textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
             }
-            items(vm.messages, key = { it.id }) { m ->
-                if (m.role == Role.USER) UserBubble(m.text) else AssistantMessage(m, onRetry = vm::retryLast, onOpenModels = onOpenModels)
+            items(items, key = { it.key }) { item ->
+                when (item) {
+                    is ChatItem.User -> UserBubble(item.text)
+                    is ChatItem.Assistant -> AssistantMessage(item.message, onRetry = vm::retryLast, onOpenModels = onOpenModels)
+                    is ChatItem.Step -> ToolStepRow(item)
+                    is ChatItem.Approval -> InlineApproval(
+                        item,
+                        awaiting = item.decision == null && vm.state.value == tech.qigai.helium.agent.AgentState.AWAITING_APPROVAL && vm.isAwaiting(item.request),
+                        onDecide = { approved, scope -> vm.decide(item.request, approved, scope) },
+                    )
+                }
+            }
+            if (running && (streamingText.isNotEmpty() || streamingReasoning.isNotEmpty() || items.lastOrNull() !is ChatItem.Approval)) {
+                item(key = "streaming") {
+                    AssistantMessage(
+                        ChatMessage(-1, Role.ASSISTANT, streamingText, streamingReasoning, streaming = true, model = settings.activeModelLabel),
+                        onRetry = vm::retryLast, onOpenModels = onOpenModels,
+                    )
+                }
             }
         }
 
@@ -171,6 +191,15 @@ fun ChatScreen(
             modifier = Modifier.padding(horizontal = 24.dp),
         )
         Spacer(Modifier.height(12.dp))
+    }
+    if (history) {
+        HistoryDialog(
+            conversations = vm.conversations.collectAsState().value,
+            currentId = vm.conversationId.value,
+            onOpen = { history = false; vm.open(it) },
+            onDelete = vm::delete,
+            onDismiss = { history = false },
+        )
     }
 }
 
@@ -293,123 +322,5 @@ private fun ThinkingWave(modifier: Modifier = Modifier) {
             Brush.horizontalGradient(listOf(HeColors.Accent.copy(alpha = 0.1f), HeColors.Accent)),
             style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round),
         )
-    }
-}
-
-/** Live run card (示例): gradient hairline is the screen's single hero accent. */
-@Composable
-fun LiveRunCard(run: LiveRun, onOpen: () -> Unit, toast: (String) -> Unit) {
-    val shape = RoundedCornerShape(32.dp)
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .heCardShadow(shape)
-            .clip(shape)
-            .background(Color.White)
-            .border(1.5.dp, Brush.linearGradient(HeGradients.AuroraSunrise), shape)
-            .clickable(onClick = onOpen)
-            .padding(24.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Dot(HeColors.Accent, size = 10.dp)
-            Spacer(Modifier.width(12.dp))
-            Text(run.title, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = HeColors.Ink)
-            Spacer(Modifier.width(8.dp))
-            SampleBadge()
-            Spacer(Modifier.weight(1f))
-            Text(run.elapsed, fontSize = 14.sp, color = HeColors.Ink2)
-        }
-        Spacer(Modifier.height(16.dp))
-        BrowserPreview()
-        Spacer(Modifier.height(16.dp))
-        run.steps.forEach { s ->
-            Row(Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (s.done) {
-                    Box(Modifier.size(22.dp).clip(CircleShape).background(HeColors.MintTint), contentAlignment = Alignment.Center) {
-                        Icon(HeIcons.Check, null, tint = HeColors.MintInk, modifier = Modifier.size(14.dp))
-                    }
-                } else {
-                    Spinner(Modifier.size(22.dp))
-                }
-                Spacer(Modifier.width(14.dp))
-                Text(
-                    s.text, fontSize = 15.sp,
-                    fontWeight = if (s.done) FontWeight.Normal else FontWeight.SemiBold,
-                    color = HeColors.Ink,
-                )
-                if (!s.done) {
-                    Spacer(Modifier.width(16.dp))
-                    ThinkingWave(Modifier.weight(1f))
-                }
-            }
-        }
-        Spacer(Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            HePillButton("接管", { toast("接管：需要浏览器代理后端（v1）") }, Modifier.weight(1f), ButtonKind.TONAL, HeIcons.Hand, HeButton.Medium)
-            HePillButton("暂停", { toast("示例任务，暂停功能在 v1 接入") }, Modifier.weight(1f), ButtonKind.OUTLINE, HeIcons.Pause, HeButton.Medium)
-        }
-    }
-}
-
-@Composable
-private fun Spinner(modifier: Modifier = Modifier) {
-    val a = ambientFloat(0f, 360f, 900)
-    Canvas(modifier) {
-        drawArc(HeColors.Accent.copy(alpha = 0.15f), 0f, 360f, false, style = Stroke(2.5.dp.toPx()))
-        drawArc(HeColors.Accent, a, 250f, false, style = Stroke(2.5.dp.toPx(), cap = StrokeCap.Round))
-    }
-}
-
-/** Neutral mock of the browser frame the agent is driving. */
-@Composable
-private fun BrowserPreview() {
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .height(124.dp)
-            .clip(RoundedCornerShape(20.dp))
-            .background(HeColors.Mist3)
-            .border(1.dp, HeColors.Hair, RoundedCornerShape(20.dp)),
-    ) {
-        Canvas(Modifier.fillMaxSize()) {
-            val w = size.width
-            val h = size.height
-            val pageL = w * 0.22f
-            val pageR = w * 0.78f
-            drawRoundRect(Color.White, Offset(pageL, 8.dp.toPx()), androidx.compose.ui.geometry.Size(pageR - pageL, h), androidx.compose.ui.geometry.CornerRadius(6.dp.toPx()))
-            val bar = { x: Float, y: Float, bw: Float, c: Color ->
-                drawRoundRect(c, Offset(x, y), androidx.compose.ui.geometry.Size(bw, 6.dp.toPx()), androidx.compose.ui.geometry.CornerRadius(3.dp.toPx()))
-            }
-            bar(pageL + 8.dp.toPx(), 16.dp.toPx(), 24.dp.toPx(), HeColors.Hair)
-            bar(pageL + 60.dp.toPx(), 16.dp.toPx(), 56.dp.toPx(), HeColors.Hair)
-            bar(pageR - 30.dp.toPx(), 14.dp.toPx(), 22.dp.toPx(), HeColors.Accent)
-            val colW = (pageR - pageL - 24.dp.toPx()) / 2
-            drawRoundRect(HeColors.Mist2, Offset(pageL + 8.dp.toPx(), 30.dp.toPx()), androidx.compose.ui.geometry.Size(colW, 48.dp.toPx()), androidx.compose.ui.geometry.CornerRadius(6.dp.toPx()))
-            bar(pageL + 14.dp.toPx(), 38.dp.toPx(), colW * 0.8f, HeColors.Hair)
-            bar(pageL + 14.dp.toPx(), 62.dp.toPx(), colW * 0.45f, HeColors.Accent)
-            val imgX = pageL + 16.dp.toPx() + colW
-            drawRoundRect(
-                Brush.linearGradient(listOf(Color(0xFFE2B886), Color(0xFFC88A6A))),
-                Offset(imgX, 30.dp.toPx()), androidx.compose.ui.geometry.Size(colW, 48.dp.toPx()), androidx.compose.ui.geometry.CornerRadius(6.dp.toPx()),
-            )
-            drawCircle(Color.White, 15.dp.toPx(), Offset(imgX + colW / 2, 54.dp.toPx()))
-            drawCircle(Color(0xFFD9805F), 7.dp.toPx(), Offset(imgX + colW / 2 - 3.dp.toPx(), 52.dp.toPx()))
-            drawCircle(Color(0xFF7FA86A), 4.dp.toPx(), Offset(imgX + colW / 2 + 7.dp.toPx(), 56.dp.toPx()))
-            bar(imgX, 88.dp.toPx(), colW * 0.8f, HeColors.Hair)
-            bar(imgX, 100.dp.toPx(), colW * 0.6f, HeColors.Hair)
-            drawRoundRect(HeColors.Mist2, Offset(pageL + 8.dp.toPx(), 86.dp.toPx()), androidx.compose.ui.geometry.Size(colW * 0.45f, 32.dp.toPx()), androidx.compose.ui.geometry.CornerRadius(6.dp.toPx()))
-            drawRoundRect(HeColors.Mist2, Offset(pageL + 14.dp.toPx() + colW * 0.45f, 86.dp.toPx()), androidx.compose.ui.geometry.Size(colW * 0.45f, 32.dp.toPx()), androidx.compose.ui.geometry.CornerRadius(6.dp.toPx()))
-        }
-        Box(
-            Modifier
-                .align(Alignment.BottomEnd)
-                .padding(10.dp)
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(Color.White),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(HeIcons.Expand, null, tint = HeColors.Ink, modifier = Modifier.size(16.dp))
-        }
     }
 }
