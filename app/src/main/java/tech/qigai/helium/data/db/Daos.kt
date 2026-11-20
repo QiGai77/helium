@@ -124,6 +124,70 @@ interface MemoryDao {
 
     @Query("DELETE FROM forget_rules WHERE id = :id")
     suspend fun deleteRule(id: Long)
+
+    // ---- v5 (M4) ----
+
+    @Query("SELECT * FROM memories ORDER BY createdAt DESC")
+    suspend fun all(): List<MemoryEntity>
+
+    @Query("SELECT COUNT(*) FROM memories")
+    suspend fun count(): Int
+
+    /** [match] is an FTS4 expression from FtsQuery / MemoryRanker.ftsAnyOf. */
+    @Query("SELECT m.* FROM memories AS m JOIN memory_fts ON m.id = memory_fts.rowid WHERE memory_fts MATCH :match ORDER BY m.createdAt DESC LIMIT :limit")
+    suspend fun ftsSearch(match: String, limit: Int): List<MemoryEntity>
+
+    @Query("SELECT * FROM memories WHERE domain IN (:domains) ORDER BY createdAt DESC LIMIT :limit")
+    suspend fun byDomains(domains: List<String>, limit: Int): List<MemoryEntity>
+
+    @Update
+    suspend fun update(m: MemoryEntity)
+
+    @Insert
+    suspend fun insertCandidate(c: MemoryCandidateEntity): Long
+
+    @Query("SELECT * FROM memory_candidates WHERE id = :id")
+    suspend fun candidate(id: Long): MemoryCandidateEntity?
+
+    @Query("SELECT * FROM memory_candidates WHERE status = 'PENDING' ORDER BY createdAt")
+    suspend fun pendingCandidates(): List<MemoryCandidateEntity>
+
+    @Query("SELECT * FROM memory_candidates WHERE status = 'PENDING' ORDER BY createdAt")
+    fun observePendingCandidates(): Flow<List<MemoryCandidateEntity>>
+
+    @Query("SELECT * FROM memory_candidates WHERE status = 'PENDING' AND conversationId = :conversationId ORDER BY createdAt")
+    fun observeCandidates(conversationId: String): Flow<List<MemoryCandidateEntity>>
+
+    @Query("UPDATE memory_candidates SET status = :status WHERE id = :id")
+    suspend fun setCandidateStatus(id: Long, status: String)
+
+    @Query("DELETE FROM memory_candidates")
+    suspend fun clearCandidates()
+
+    /** Keep only the pending ones and a short tail of decided ones. */
+    @Query("DELETE FROM memory_candidates WHERE status != 'PENDING' AND createdAt < :before")
+    suspend fun purgeDecided(before: Long)
+}
+
+@Dao
+interface SkillDao {
+    @Query("SELECT * FROM skills ORDER BY createdAt")
+    fun observeAll(): Flow<List<SkillEntity>>
+
+    @Query("SELECT * FROM skills ORDER BY createdAt")
+    suspend fun all(): List<SkillEntity>
+
+    @Query("SELECT * FROM skills WHERE id = :id")
+    suspend fun get(id: String): SkillEntity?
+
+    @Upsert
+    suspend fun upsert(s: SkillEntity)
+
+    @Query("UPDATE skills SET enabled = :enabled, updatedAt = :at WHERE id = :id")
+    suspend fun setEnabled(id: String, enabled: Boolean, at: Long)
+
+    @Query("DELETE FROM skills WHERE id = :id")
+    suspend fun delete(id: String)
 }
 
 @Dao

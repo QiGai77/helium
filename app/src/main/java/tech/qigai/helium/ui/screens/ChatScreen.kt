@@ -87,8 +87,10 @@ fun ChatScreen(
     onOpenTimeline: () -> Unit,
     onOpenModels: () -> Unit,
     toast: (String) -> Unit,
+    onManageSkills: () -> Unit = {},
 ) {
     val running by vm.running
+    val candidates by vm.candidates.collectAsState()
     val listState = rememberLazyListState()
     var menu by remember { mutableStateOf(false) }
     var modelMenu by remember { mutableStateOf(false) }
@@ -100,7 +102,7 @@ fun ChatScreen(
     val focusAt = vm.focusAt.value
     var preview by remember { mutableStateOf<java.io.File?>(null) }
     val lastAssistantKey = items.lastOrNull { it is ChatItem.Assistant }?.key
-    LaunchedEffect(vm.events.size, streamingText.length, streamingReasoning.length, focusAt) {
+    LaunchedEffect(vm.events.size, streamingText.length, streamingReasoning.length, focusAt, candidates.size) {
         val count = listState.layoutInfo.totalItemsCount
         val target = focusAt?.let { at -> items.indexOfFirst { it.at() == at } }?.takeIf { it >= 0 }
         if (target != null) {
@@ -202,6 +204,11 @@ fun ChatScreen(
                     )
                 }
             }
+            if (candidates.isNotEmpty() && !running) {
+                item(key = "memory-candidates") {
+                    MemoryCandidateCard(candidates, vm::acceptCandidate, vm::dismissCandidate, vm::neverCandidate)
+                }
+            }
             if (running && (streamingText.isNotEmpty() || streamingReasoning.isNotEmpty() || items.lastOrNull() !is ChatItem.Approval)) {
                 item(key = "streaming") {
                     AssistantMessage(
@@ -219,6 +226,7 @@ fun ChatScreen(
             running = running,
             onStop = vm::stop,
             modifier = Modifier.padding(horizontal = 24.dp),
+            onManageSkills = onManageSkills,
         )
         Spacer(Modifier.height(12.dp))
     }

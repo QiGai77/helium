@@ -54,9 +54,51 @@ data class MemoryEntity(
     val text: String,
     val domain: String,
     val inferred: Boolean,
-    /** "chat" when the agent saved it, "manual" when the user typed it. */
+    /** "chat" when confirmed from a candidate, "manual" when the user typed it. */
     val source: String,
     val createdAt: Long,
+    // ---- v5 (M4) ----
+    @ColumnInfo(defaultValue = "0") val updatedAt: Long = 0,
+    /** [tech.qigai.helium.chat.SearchText] form of `text`; indexed by [MemoryFts]. */
+    @ColumnInfo(defaultValue = "''") val searchText: String = "",
+)
+
+/** External-content FTS4 index over `memories.searchText` (v5); Room keeps it in sync with triggers. */
+@Fts4(contentEntity = MemoryEntity::class)
+@Entity(tableName = "memory_fts")
+data class MemoryFts(val searchText: String)
+
+/** A fact extracted after a turn (or proposed by `memory_save`); only becomes a memory when the user confirms. */
+@Entity(tableName = "memory_candidates", indices = [Index("conversationId"), Index("status")])
+data class MemoryCandidateEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val conversationId: String,
+    val text: String,
+    val domain: String,
+    val inferred: Boolean,
+    /** PENDING / ACCEPTED / DISMISSED ([CandidateStatus]). */
+    val status: String,
+    val createdAt: Long,
+)
+
+object CandidateStatus {
+    const val PENDING = "PENDING"
+    const val ACCEPTED = "ACCEPTED"
+    const val DISMISSED = "DISMISSED"
+}
+
+/** 专长: a Markdown instruction sheet (SKILL.md shape: name + description + optional triggers, then the body). */
+@Entity(tableName = "skills")
+data class SkillEntity(
+    @PrimaryKey val id: String,
+    val name: String,
+    val description: String,
+    /** Newline-separated keywords; empty = the name itself. */
+    val triggers: String,
+    val body: String,
+    val enabled: Boolean,
+    val createdAt: Long,
+    val updatedAt: Long,
 )
 
 /** "不再保存" rule created when a memory is forgotten. */

@@ -45,7 +45,9 @@ import tech.qigai.helium.ui.screens.ApprovalScreen
 import tech.qigai.helium.ui.screens.AuditScreen
 import tech.qigai.helium.ui.screens.timelineFrom
 import tech.qigai.helium.agent.AgentState
-import tech.qigai.helium.data.model.MemoryItem
+import tech.qigai.helium.data.db.toDoc
+import tech.qigai.helium.ui.screens.MemTab
+import tech.qigai.helium.ui.screens.MemoryActions
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.produceState
 import androidx.navigation.NavType
@@ -106,6 +108,10 @@ fun HeliumNavHost(nav: NavHostController = rememberNavController()) {
     val context = LocalContext.current
     val pending by app.approvals.observePending().collectAsState(initial = emptyList())
     val memories by app.memories.observeAll().collectAsState(initial = emptyList())
+    val memoryCandidates by app.memories.observePendingCandidates().collectAsState(initial = emptyList())
+    val forgetRules by app.memories.observeRules().collectAsState(initial = emptyList())
+    val skillRows by app.skills.observeAll().collectAsState(initial = emptyList())
+    var memoryTab by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(MemTab.ALL) }
     val grants by app.grants.observeAll().collectAsState(initial = emptyList())
     val audit by app.audit.observeRecent().collectAsState(initial = emptyList())
     val weekAgo = remember { System.currentTimeMillis() - 7L * 24 * 3600_000 }
@@ -161,6 +167,7 @@ fun HeliumNavHost(nav: NavHostController = rememberNavController()) {
                                 toast = toast,
                                 placeholder = "让 Helium 帮你…",
                                 modifier = m,
+                                onManageSkills = { memoryTab = MemTab.SKILLS; open(Routes.MEMORY) },
                             )
                         },
                         agentRunning = chatVm.running.value,
@@ -183,6 +190,7 @@ fun HeliumNavHost(nav: NavHostController = rememberNavController()) {
                         onOpenTimeline = { open(Routes.TIMELINE) },
                         onOpenModels = { open(Routes.MODELS) },
                         toast = toast,
+                        onManageSkills = { memoryTab = MemTab.SKILLS; open(Routes.MEMORY) },
                     )
                 }
                 composable(Routes.GLANCE) { GlanceScreen(onOpenMe = { open(Routes.ME) }, toast = toast) }
@@ -257,7 +265,7 @@ fun HeliumNavHost(nav: NavHostController = rememberNavController()) {
                         vaultCount = app.settings.vaultCount,
                         onBack = { nav.popBackStack() },
                         onOpenModels = { open(Routes.MODELS) },
-                        onOpenMemory = { open(Routes.MEMORY) },
+                        onOpenMemory = { memoryTab = MemTab.ALL; open(Routes.MEMORY) },
                         onOpenApproval = { open(Routes.APPROVAL) },
                         onOpenAudit = { open(Routes.AUDIT) },
                         memoryCount = memories.size,
@@ -270,11 +278,28 @@ fun HeliumNavHost(nav: NavHostController = rememberNavController()) {
                     ModelsScreen(settings = settings, repo = app.settings, onBack = { nav.popBackStack() }, toast = toast)
                 }
                 composable(Routes.MEMORY) {
+                    val skillDocs = skillRows.map { it.toDoc() }
                     MemorySkillsScreen(
-                        memories = memories.map { MemoryItem(it.id.toString(), it.text, it.inferred) },
-                        skills = emptyList(),
-                        onAdd = { text -> scope.launch { app.memories.addManual(text, "其他") } },
-                        onForget = { m -> scope.launch { m.id.toLongOrNull()?.let { app.memories.forget(it) } } },
+                        memories = memories,
+                        candidates = memoryCandidates,
+                        rules = forgetRules,
+                        skills = skillDocs,
+                        startTab = memoryTab,
+                        actions = MemoryActions(
+                            add = { text, domain -> scope.launch { app.memories.addManual(text, domain) } },
+                            edit = { id, text, domain, inferred -> scope.launch { app.memories.update(id, text, domain, inferred) } },
+                            forget = { id -> scope.launch { app.memories.forget(id) } },
+                            accept = { id -> scope.launch { app.memories.accept(id) } },
+                            dismiss = { id -> scope.launch { app.memories.dismiss(id) } },
+                            never = { id -> scope.launch { app.memories.never(id) } },
+                            deleteRule = { id -> scope.launch { app.memories.deleteRule(id) } },
+                            clearAll = { scope.launch { app.memories.clear() } },
+                            exportMarkdown = { app.memories.exportMarkdown(app.skills.list()) },
+                            exportJson = { app.memories.exportJson(app.skills.list()) },
+                            saveSkill = { doc -> scope.launch { app.skills.save(doc) } },
+                            deleteSkill = { id -> scope.launch { app.skills.delete(id) } },
+                            toggleSkill = { id, on -> scope.launch { app.skills.setEnabled(id, on) } },
+                        ),
                         onBack = { nav.popBackStack() },
                         toast = toast,
                     )

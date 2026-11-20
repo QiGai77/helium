@@ -25,6 +25,10 @@ import tech.qigai.helium.data.db.ConversationRepository
 import tech.qigai.helium.data.db.HeliumDatabase
 import tech.qigai.helium.data.db.RoomGrantStore
 import tech.qigai.helium.data.db.RoomMemoryStore
+import tech.qigai.helium.data.db.RoomSkillStore
+import tech.qigai.helium.agent.tools.LoadSkillTool
+import tech.qigai.helium.agent.tools.SkillDeleteTool
+import tech.qigai.helium.agent.tools.SkillSaveTool
 import tech.qigai.helium.data.db.TaskRepository
 import tech.qigai.helium.data.llm.LlmClient
 import tech.qigai.helium.data.media.ImageStore
@@ -53,6 +57,7 @@ class HeliumApplication : Application() {
     val images by lazy { ImageStore(this) }
     val conversations by lazy { ConversationRepository(db, onImagesDropped = { images.delete(it) }) }
     val memories by lazy { RoomMemoryStore(db) }
+    val skills by lazy { RoomSkillStore(db) }
     val grants by lazy { RoomGrantStore(db) }
     val audit by lazy { AuditRepository(db) }
     val approvals by lazy { ApprovalBroker(db) }
@@ -94,6 +99,9 @@ class HeliumApplication : Application() {
                 MemorySearchTool(memories),
                 MemorySaveTool(memories),
                 MemoryForgetTool(memories),
+                LoadSkillTool(skills),
+                SkillSaveTool(skills),
+                SkillDeleteTool(skills),
                 CalendarReadTool(AndroidCalendar(this), permissions),
                 NotifyTool(notifications, permissions),
                 ReminderCreateTool(taskEngine),

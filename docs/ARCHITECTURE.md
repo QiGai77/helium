@@ -77,3 +77,24 @@ Each run's events are the slice of the task conversation between `task_runs.star
 | 自定义卡 | `glance/Cards.kt` | 一句话 → 卡片定义 JSON（url + format + 字段规则 + refresh_minutes）。规则：JSONPath 子集、`regex:`、`meta:`、`items:n`；刷新间隔 ≥ 60 分钟；拒绝内网地址。「盯 BTC/ETH… 价格」直接映射 CoinGecko simple/price，不需要模型。 |
 | 后台刷新 | `glance/GlanceRefreshWorker.kt` | WorkManager 唯一周期任务 `glance-refresh`（1 小时，需联网），`HeliumApplication.onCreate` 入队；到期的卡（10 分钟余量）、订阅、天气、理由一起刷新。 |
 | 首页英雄卡 | `glance/DeviceSources.kt`、`ui/screens/HomeHero.kt` | `CalendarContract.Instances` 取最近的日程（定时日程优先，36 小时内），没有日程时显示今天天气。首次进入首页请求一次定位 + 日历权限。 |
+
+## 记忆与专长 (M4)
+
+```
+turn finished ──► MemoryExtractor (gate: first-person / "记住"; one cheap call, mem0-style prompt → {"facts":[{text,domain,inferred}]})
+                      └─► RoomMemoryStore.proposeAll: "不再保存" rules → de-dup vs memories + pending → memory_candidates (PENDING)
+chat card / 记忆页 「记住」 ──► memories (+ memory_fts via Room triggers)        「不用」 dismiss   「不再提这类」 dismiss + rule
+memory_save tool ──► propose only (LOW risk; the candidate card is the confirmation)
+each turn ──► RoomMemoryStore.relevant(userText): FTS4 OR-query + query domains + safety facts → MemoryRanker → system prompt block
+              (worded so the model uses facts silently, never "根据你的记忆")
+专长 ──► system prompt lists id/name/description; load_skill(id) returns the body (opencode); a picked skill (【专长：名】 from the
+         composer) or a trigger / name in the message injects the body directly (OpenHands keyword-triggered skills)
+skill_save / skill_delete ──► HIGH risk: Sentinel always asks, once only, with the full SKILL.md on the card
+```
+
+| 部分 | 文件 | 说明 |
+|---|---|---|
+| 纯逻辑 | `memory/MemoryLogic.kt` | 领域（饮食/健康/出行/工作/家庭/购物/偏好/其他，v4 的 人→家庭、家与健康→健康）、抽取 prompt + 宽松 JSON 解析、`ForgetRules`（去主语/标点后包含或 bigram Dice ≥ 0.7）、`MemoryRanker`（CJK bigram 重合 + 领域 + 过敏等安全事实；≤12 条全量注入）、导出 Markdown/JSON |
+| 专长 | `skills/SkillLogic.kt`、`agent/tools/SkillTools.kt` | SKILL.md 前言解析/生成（name、description、triggers）、id、触发匹配、`load_skill` / `skill_save` / `skill_delete` |
+| 存储 | `data/db/MemoryRepository.kt`、`MemorySchema.kt` | DB v5（`MIGRATION_4_5`）：memories 加 `updatedAt`、`searchText`；`memory_fts`（FTS4 外部内容）、`memory_candidates`、`skills`。`MemorySchemaTest` 对照导出的 5.json |
+| 界面 | `ui/screens/MemorySkillsScreen.kt`、`MemoryUi.kt` | 按领域分组、你说的/推断、编辑、长按遗忘、待确认候选、管理（SAF 导出 Markdown/JSON、不再保存规则、清空）、专长卡片 + 编辑器；对话里候选卡与 ✦ 专长选择 |

@@ -30,6 +30,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -81,9 +82,12 @@ fun ChatInputBar(
     placeholder: String = "问 Helium 任何事…",
     running: Boolean = false,
     onStop: () -> Unit = {},
+    /** 技能 picker → 管理专长 / 新建专长. */
+    onManageSkills: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val st = remember { ChatInputState() }
+    var skillPicker by remember { mutableStateOf(false) }
     val voice = remember { VoiceInput(context.applicationContext) }
     DisposableEffect(voice) { onDispose { voice.release() } }
     var holding by remember { mutableStateOf(false) }
@@ -183,10 +187,20 @@ fun ChatInputBar(
             onStop = onStop,
             placeholder = placeholder,
             onAttach = { st.chooser = true },
-            onSkills = { toast("技能面板即将支持") },
+            onSkills = { skillPicker = true },
             sendEnabled = vm.draft.value.isNotBlank() || vm.attachments.isNotEmpty(),
             onMicHold = ::onMicHold,
             listening = st.listening,
+        )
+    }
+
+    if (skillPicker) {
+        val skills by vm.skills.collectAsState()
+        SkillPickerDialog(
+            skills,
+            onPick = { vm.useSkill(it); skillPicker = false },
+            onManage = { skillPicker = false; onManageSkills() },
+            onDismiss = { skillPicker = false },
         )
     }
 

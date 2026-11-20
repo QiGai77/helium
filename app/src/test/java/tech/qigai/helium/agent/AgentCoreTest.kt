@@ -12,10 +12,19 @@ private class FakeGrants : GrantStore {
 }
 private class FakeMem : MemoryStore {
     val items = mutableListOf<MemoryRecord>()
+    val proposed = mutableListOf<Pair<String, String>>()
+    override suspend fun propose(text: String, domain: String, inferred: Boolean, conversationId: String): ProposeResult { proposed += conversationId to text; return ProposeResult.PROPOSED }
     override suspend fun search(query: String, limit: Int) = items.filter { r -> query.split(" ").any { it.isNotBlank() && r.text.contains(it) } }
     override suspend fun add(text: String, domain: String, inferred: Boolean): Long { items += MemoryRecord(items.size + 1L, text, domain, inferred, 0); return items.size.toLong() }
     override suspend fun forget(id: Long) = items.firstOrNull { it.id == id }?.also { items.remove(it) }
     override suspend fun blocked(text: String) = false
+}
+/** A medium-risk tool that writes straight to the store (memory_save only proposes since M4). */
+private class NoteTool(private val mem: FakeMem) : Tool {
+    override val spec = ToolSpec("note_save", "", params(Triple("text", "string", ""), Triple("domain", "string", "")))
+    override fun risk(args: JSONObject) = Risk.MEDIUM
+    override fun target(args: JSONObject) = "memory"
+    override suspend fun run(args: JSONObject, ctx: ToolContext): ToolOutput { mem.add(args.optString("text"), args.optString("domain"), false); return ToolOutput("ok") }
 }
 private class ListSink : EventSink { val e = mutableListOf<AgentEvent>(); override suspend fun append(conversationId: String, event: AgentEvent) { e += event } }
 
@@ -30,7 +39,7 @@ private fun check(c: Boolean, msg: String) { if (!c) error("FAIL: $msg") else pr
 class AgentCoreTest {
 @org.junit.Test fun scenarios() = runBlocking {
     val mem = FakeMem(); val grants = FakeGrants()
-    val reg = ToolRegistry(listOf(TimeTool(), MemorySaveTool(mem), MemorySearchTool(mem), MemoryForgetTool(mem)))
+    val reg = ToolRegistry(listOf(TimeTool(), NoteTool(mem), MemorySaveTool(mem), MemorySearchTool(mem), MemoryForgetTool(mem)))
     val sentinel = Sentinel(grants)
 
     // 1. plain answer
@@ -52,20 +61,30 @@ class AgentCoreTest {
     // 3. medium risk asks; rejection blocks; conversation grant persists
     run {
         val sink = ListSink(); val ev = mutableListOf<AgentEvent>(AgentEvent.UserMessage("记住我花生过敏"))
-        AgentController(scripted(ModelTurn("", "", listOf(ToolCall("b", "memory_save", """{"text":"对花生过敏","domain":"饮食"}""")), "m"), ModelTurn("好", "", emptyList(), "m")), reg, sentinel,
+        AgentController(scripted(ModelTurn("", "", listOf(ToolCall("b", "note_save", """{"text":"对花生过敏","domain":"饮食"}""")), "m"), ModelTurn("好", "", emptyList(), "m")), reg, sentinel,
             { _, r -> AgentEvent.ApprovalDecision(r.requestId, false) }, sink).run("c1", "", ev, object : AgentListener {})
         check(mem.items.isEmpty() && sink.e.any { it is AgentEvent.ApprovalRequest }, "rejected save does not write")
         val ev2 = mutableListOf<AgentEvent>(AgentEvent.UserMessage("记住"))
-        AgentController(scripted(ModelTurn("", "", listOf(ToolCall("c", "memory_save", """{"text":"对花生过敏","domain":"饮食"}""")), "m"), ModelTurn("好", "", emptyList(), "m")), reg, sentinel,
+        AgentController(scripted(ModelTurn("", "", listOf(ToolCall("c", "note_save", """{"text":"对花生过敏","domain":"饮食"}""")), "m"), ModelTurn("好", "", emptyList(), "m")), reg, sentinel,
             { _, r -> AgentEvent.ApprovalDecision(r.requestId, true, GrantScope.CONVERSATION) }, ListSink()).run("c1", "", ev2, object : AgentListener {})
         check(mem.items.size == 1 && grants.list.size == 1, "approved save writes and stores grant")
         var asked = 0
-        AgentController(scripted(ModelTurn("", "", listOf(ToolCall("d", "memory_save", """{"text":"喜欢靠窗","domain":"出行"}""")), "m"), ModelTurn("好", "", emptyList(), "m")), reg, sentinel,
+        AgentController(scripted(ModelTurn("", "", listOf(ToolCall("d", "note_save", """{"text":"喜欢靠窗","domain":"出行"}""")), "m"), ModelTurn("好", "", emptyList(), "m")), reg, sentinel,
             { _, r -> asked++; AgentEvent.ApprovalDecision(r.requestId, true) }, ListSink()).run("c1", "", mutableListOf(AgentEvent.UserMessage("x")), object : AgentListener {})
         check(asked == 0 && mem.items.size == 2, "conversation grant skips asking in same conversation")
-        AgentController(scripted(ModelTurn("", "", listOf(ToolCall("e", "memory_save", """{"text":"x","domain":"出行"}""")), "m"), ModelTurn("好", "", emptyList(), "m")), reg, sentinel,
+        AgentController(scripted(ModelTurn("", "", listOf(ToolCall("e", "note_save", """{"text":"x","domain":"出行"}""")), "m"), ModelTurn("好", "", emptyList(), "m")), reg, sentinel,
             { _, r -> asked++; AgentEvent.ApprovalDecision(r.requestId, false) }, ListSink()).run("c2", "", mutableListOf(AgentEvent.UserMessage("x")), object : AgentListener {})
         check(asked == 1, "new conversation asks again")
+    }
+    // 3b. memory_save never writes or asks: it proposes a candidate for the user to confirm
+    run {
+        var asked = 0
+        val before = mem.items.size
+        val sink = ListSink()
+        AgentController(scripted(ModelTurn("", "", listOf(ToolCall("p", "memory_save", """{"text":"对花生过敏","domain":"饮食"}""")), "m"), ModelTurn("好", "", emptyList(), "m")), reg, sentinel,
+            { _, r -> asked++; AgentEvent.ApprovalDecision(r.requestId, true) }, sink).run("c9", "", mutableListOf(AgentEvent.UserMessage("记住我花生过敏")), object : AgentListener {})
+        check(asked == 0 && mem.proposed == listOf("c9" to "对花生过敏") && mem.items.size == before, "memory_save proposes a candidate without approval")
+        check(sink.e.any { it is AgentEvent.ToolObservation && it.output.contains("候选") }, "memory_save tells the model it is only a candidate")
     }
     // 4. high risk always asks, only ONCE offered
     run {

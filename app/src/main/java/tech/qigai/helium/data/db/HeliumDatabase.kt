@@ -14,8 +14,9 @@ import tech.qigai.helium.chat.SearchText
         GrantEntity::class, AuditEntity::class, ApprovalEntity::class, ScheduledTaskEntity::class,
         EventFts::class, PendingReplyEntity::class, TaskRunEntity::class,
         FeedSourceEntity::class, FeedItemEntity::class, GlanceCardEntity::class, WeatherCacheEntity::class,
+        MemoryFts::class, MemoryCandidateEntity::class, SkillEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class HeliumDatabase : RoomDatabase() {
@@ -28,10 +29,11 @@ abstract class HeliumDatabase : RoomDatabase() {
     abstract fun approvals(): ApprovalDao
     abstract fun tasks(): TaskDao
     abstract fun glance(): GlanceDao
+    abstract fun skills(): SkillDao
 
     companion object {
         /**
-         * Version plan: 2 = M1 chat, 3 = M5 tasks, 4 = M6 glance. Each milestone branch owns one step; the others
+         * Version plan: 2 = M1 chat, 3 = M5 tasks, 4 = M6 glance, 5 = M4 memory, 6 = M3 approvals. Each milestone branch owns one step; the others
          * are added as placeholders on their own branches and replaced on merge.
          */
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -74,7 +76,24 @@ abstract class HeliumDatabase : RoomDatabase() {
             }
         }
 
-        val MIGRATIONS = arrayOf<Migration>(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+        /** M4: memory FTS index, candidate memories, 专长. SQL in [MemorySchema]. */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                MemorySchema.migration4to5.forEach(db::execSQL)
+                backfillMemorySearchText(db)
+            }
+        }
+
+        val MIGRATIONS = arrayOf<Migration>(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+
+        /** Fills `memories.searchText`; the AFTER UPDATE trigger puts each row into `memory_fts`. */
+        private fun backfillMemorySearchText(db: SupportSQLiteDatabase) {
+            val rows = ArrayList<Pair<Long, String>>()
+            db.query("SELECT `id`, `text` FROM `memories`").use { c ->
+                while (c.moveToNext()) rows += c.getLong(0) to SearchText.normalize(c.getString(1))
+            }
+            rows.forEach { (id, text) -> db.execSQL("UPDATE `memories` SET `searchText` = ? WHERE `id` = ?", arrayOf<Any>(text, id)) }
+        }
 
         /** Fills `events.searchText` for messages written before v2; the AFTER UPDATE trigger indexes them. */
         private fun backfillSearchText(db: SupportSQLiteDatabase) {

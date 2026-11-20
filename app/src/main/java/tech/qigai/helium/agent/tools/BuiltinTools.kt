@@ -102,6 +102,8 @@ object HtmlText {
 
 data class MemoryRecord(val id: Long, val text: String, val domain: String, val inferred: Boolean, val createdAt: Long)
 
+enum class ProposeResult { PROPOSED, DUPLICATE, BLOCKED }
+
 /** Backed by Room in the app. */
 interface MemoryStore {
     suspend fun search(query: String, limit: Int): List<MemoryRecord>
@@ -109,9 +111,20 @@ interface MemoryStore {
     suspend fun forget(id: Long): MemoryRecord?
     /** True when a "不再保存" rule matches this text. */
     suspend fun blocked(text: String): Boolean
+
+    /**
+     * Puts a candidate memory in front of the user; nothing is stored until they confirm it (M4). The Room store
+     * overrides this; the default (saving directly) only exists for test fakes.
+     */
+    suspend fun propose(text: String, domain: String, inferred: Boolean, conversationId: String): ProposeResult {
+        if (blocked(text)) return ProposeResult.BLOCKED
+        add(text, domain, inferred)
+        return ProposeResult.PROPOSED
+    }
 }
 
-val MEMORY_DOMAINS = listOf("人", "饮食", "出行", "购物", "工作", "家与健康", "偏好", "其他")
+/** The groups on the 记忆 page; see [tech.qigai.helium.memory.MemoryDomains]. */
+val MEMORY_DOMAINS = tech.qigai.helium.memory.MemoryDomains.all
 
 class MemorySearchTool(private val store: MemoryStore) : Tool {
     override val spec = ToolSpec(
@@ -128,10 +141,14 @@ class MemorySearchTool(private val store: MemoryStore) : Tool {
     }
 }
 
+/**
+ * Proposes a memory. Since M4 nothing is written here: the fact becomes a candidate card in the chat and is only
+ * saved when the user taps 记住, so the tool itself is low risk (no approval card on top of the candidate card).
+ */
 class MemorySaveTool(private val store: MemoryStore) : Tool {
     override val spec = ToolSpec(
         "memory_save",
-        "把用户明确说过的、以后有用的事实或偏好存进长期记忆（一句话、带上条件）。推断出来的要设 inferred=true。不要存一次性的事。",
+        "用户明确要求“记住…”时，提议一条长期记忆（一句话、带上条件）。它会作为候选卡片给用户确认，确认后才保存。推断出来的要设 inferred=true。不要存一次性的事。",
         params(
             Triple("text", "string", "一句话，例如“对花生过敏”"),
             Triple("domain", "string", "领域：" + MEMORY_DOMAINS.joinToString("/")),
@@ -139,17 +156,19 @@ class MemorySaveTool(private val store: MemoryStore) : Tool {
             required = listOf("text", "domain"),
         ),
     )
-    override fun risk(args: JSONObject) = Risk.MEDIUM
+    override fun risk(args: JSONObject) = Risk.LOW
     override fun target(args: JSONObject) = "memory"
-    override fun title(args: JSONObject) = "记住：" + args.optString("text").take(40)
+    override fun title(args: JSONObject) = "提议记住：" + args.optString("text").take(40)
     override fun detail(args: JSONObject) = "内容：${args.optString("text")}\n领域：${args.optString("domain")}\n" + if (args.optBoolean("inferred")) "来源：推断" else "来源：你说的"
     override suspend fun run(args: JSONObject, ctx: ToolContext): ToolOutput {
         val text = args.optString("text").trim()
         if (text.isEmpty()) return ToolOutput("text 不能为空", isError = true)
-        if (store.blocked(text)) return ToolOutput("用户设置过「不再保存」这类内容，没有保存。")
-        val domain = args.optString("domain").takeIf { it in MEMORY_DOMAINS } ?: "其他"
-        val id = store.add(text, domain, args.optBoolean("inferred"))
-        return ToolOutput("已保存（id=$id）")
+        val domain = tech.qigai.helium.memory.MemoryDomains.normalize(args.optString("domain")) ?: tech.qigai.helium.memory.MemoryDomains.guess(text)
+        return when (store.propose(text, domain, args.optBoolean("inferred"), ctx.conversationId)) {
+            ProposeResult.PROPOSED -> ToolOutput("已放进候选记忆，用户在对话里点「记住」后才会保存。不用再提这件事。")
+            ProposeResult.DUPLICATE -> ToolOutput("这条已经记住了，或已经在等用户确认，不用再存。")
+            ProposeResult.BLOCKED -> ToolOutput("用户设置过「不再保存」这类内容，没有保存，也不要再提议。")
+        }
     }
 }
 

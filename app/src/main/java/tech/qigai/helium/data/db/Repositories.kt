@@ -13,8 +13,6 @@ import tech.qigai.helium.agent.Grant
 import tech.qigai.helium.agent.GrantScope
 import tech.qigai.helium.agent.GrantStore
 import tech.qigai.helium.agent.covers
-import tech.qigai.helium.agent.tools.MemoryRecord
-import tech.qigai.helium.agent.tools.MemoryStore
 import tech.qigai.helium.chat.FtsQuery
 import tech.qigai.helium.chat.PendingReply
 import tech.qigai.helium.chat.SearchText
@@ -129,42 +127,6 @@ class RoomGrantStore(private val db: HeliumDatabase) : GrantStore {
     suspend fun purgeExpired() = db.grants().purgeExpired(System.currentTimeMillis())
 
     private fun GrantEntity.toGrant() = Grant(tool, target, runCatching { GrantScope.valueOf(scope) }.getOrDefault(GrantScope.ONCE), conversationId, expiresAt, id, createdAt)
-}
-
-class RoomMemoryStore(private val db: HeliumDatabase) : MemoryStore {
-    fun observeAll(): Flow<List<MemoryEntity>> = db.memories().observeAll()
-    fun observeRules(): Flow<List<ForgetRuleEntity>> = db.memories().observeRules()
-    suspend fun recent(limit: Int) = db.memories().recent(limit)
-
-    override suspend fun search(query: String, limit: Int): List<MemoryRecord> {
-        val terms = query.split(Regex("[\\s,，。、]+")).filter { it.isNotBlank() }.ifEmpty { listOf(query) }
-        return terms.flatMap { db.memories().search(it, limit) }.distinctBy { it.id }.take(limit).map { it.toRecord() }
-    }
-
-    override suspend fun add(text: String, domain: String, inferred: Boolean): Long =
-        db.memories().insert(MemoryEntity(0, text.trim(), domain, inferred, "chat", System.currentTimeMillis()))
-
-    suspend fun addManual(text: String, domain: String): Long =
-        db.memories().insert(MemoryEntity(0, text.trim(), domain, false, "manual", System.currentTimeMillis()))
-
-    /** Forgetting deletes the memory and records a "不再保存" rule for it. */
-    override suspend fun forget(id: Long): MemoryRecord? {
-        val m = db.memories().get(id) ?: return null
-        db.memories().delete(id)
-        db.memories().insertRule(ForgetRuleEntity(0, m.text, System.currentTimeMillis()))
-        return m.toRecord()
-    }
-
-    override suspend fun blocked(text: String): Boolean {
-        val t = normalize(text)
-        return db.memories().rules().any { r -> val n = normalize(r.text); n.isNotEmpty() && (t.contains(n) || n.contains(t)) }
-    }
-
-    suspend fun deleteRule(id: Long) = db.memories().deleteRule(id)
-    suspend fun clear() = db.memories().clear()
-
-    private fun normalize(s: String) = s.filterNot { it.isWhitespace() || it in "，。,.!！?？" }.lowercase()
-    private fun MemoryEntity.toRecord() = MemoryRecord(id, text, domain, inferred, createdAt)
 }
 
 class AuditRepository(private val db: HeliumDatabase) : AuditSink {
