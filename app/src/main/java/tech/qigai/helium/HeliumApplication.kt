@@ -12,6 +12,7 @@ import tech.qigai.helium.agent.search.ExaMcpSearch
 import tech.qigai.helium.agent.search.SearchProvider
 import tech.qigai.helium.agent.search.WebSearchTool
 import tech.qigai.helium.agent.tools.CalendarReadTool
+import tech.qigai.helium.agent.tools.CalendarWriteTool
 import tech.qigai.helium.agent.tools.MemoryForgetTool
 import tech.qigai.helium.agent.tools.NotifyTool
 import tech.qigai.helium.agent.tools.SmsSendTool
@@ -37,6 +38,7 @@ import tech.qigai.helium.data.media.ImageStore
 import tech.qigai.helium.data.settings.SearchProviderId
 import tech.qigai.helium.data.settings.SettingsRepository
 import tech.qigai.helium.data.device.AndroidCalendar
+import tech.qigai.helium.data.device.AndroidCalendarWriter
 import tech.qigai.helium.tasks.HeliumNotifications
 import tech.qigai.helium.tasks.PermissionBroker
 import tech.qigai.helium.tasks.ReminderCreateTool
@@ -105,6 +107,7 @@ class HeliumApplication : Application() {
                 SkillSaveTool(skills),
                 SkillDeleteTool(skills),
                 CalendarReadTool(AndroidCalendar(this), permissions),
+                CalendarWriteTool(AndroidCalendarWriter(this), permissions),
                 NotifyTool(notifications, permissions),
                 SmsSendTool(AndroidSms(this, foreground = { permissions.foreground() }, notifyOpen = notifications::openActivity)),
                 ReminderCreateTool(taskEngine),
@@ -120,6 +123,8 @@ class HeliumApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // M7: 崩溃日志只写本机 files/crash-logs/，不上传。
+        tech.qigai.helium.crash.CrashHandler.install(this, BuildConfig.VERSION_NAME)
         appScope.launch {
             // Nothing can still be waiting on an approval from a previous process.
             approvals.expireStale()
