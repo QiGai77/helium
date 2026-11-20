@@ -200,14 +200,14 @@ fun InlineApproval(item: ChatItem.Approval, awaiting: Boolean, onDecide: (Boolea
         val d = item.decision
         when {
             d != null -> Text(
-                if (d.approved) "已批准" + (d.scope?.let { "（${it.label}）" } ?: "") else "已拒绝",
+                if (d.approved) "已批准" + (d.scope?.let { " · ${it.label}" } ?: "") else "已拒绝",
                 fontSize = 13.sp, color = if (d.approved) HeColors.MintInk else HeColors.Ink3, fontWeight = FontWeight.SemiBold,
             )
-            !awaiting -> Text("已失效（任务已停止）", fontSize = 13.sp, color = HeColors.Ink3)
+            !awaiting -> Text("已失效", fontSize = 13.sp, color = HeColors.Ink3)
             else -> FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 r.scopes.forEachIndexed { i, s ->
                     HePillButton(
-                        if (i == 0) "批准（${s.label}）" else s.label,
+                        if (i == 0) "批准 · ${s.label}" else s.label,
                         { onDecide(true, s) },
                         kind = if (i == 0) ButtonKind.PRIMARY else ButtonKind.TONAL,
                         height = HeButton.Small,

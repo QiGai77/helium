@@ -67,7 +67,7 @@ fun TimelineScreen(run: AgentRun?, running: Boolean, onStop: () -> Unit, onBack:
     Column(Modifier.fillMaxSize()) {
         if (run == null || run.steps.isEmpty()) {
             SubTopBar(null, onBack)
-            EmptyState("还没有执行步骤", "Helium 调用工具（查时间、读网页、存记忆…）时，每一步都会记录在这里。", Modifier.weight(1f))
+            EmptyState("还没有执行步骤", "Helium 调用工具时，每一步都会记录在这里。", Modifier.weight(1f))
             return@Column
         }
         SubTopBar(null, onBack, trailing = { RoundIconButton(HeIcons.More, { toast("更多操作即将支持") }) })

@@ -93,8 +93,8 @@ fun MeScreen(
             }
             Group("账户") {
                 SettingRow(HeIcons.Person, "个人资料", "姓名 · 头像 · 邮箱", onClick = soon("个人资料"))
-                SettingRow(HeIcons.Link, "Google 账号", "连接 Gmail · 日历 · 云端硬盘（连接器，不用于模型登录）", trailingTag = "未连接", onClick = soon("Google 账号连接"))
-                SettingRow(HeIcons.Cpu, "模型与推理", providerLine, sub2 = "可选 Gemini API（需 API Key）· 自带 OpenAI 兼容", onClick = onOpenModels)
+                SettingRow(HeIcons.Link, "Google 账号", "连接 Gmail · 日历 · 云端硬盘", trailingTag = "未连接", onClick = soon("Google 账号连接"))
+                SettingRow(HeIcons.Cpu, "模型与推理", providerLine, sub2 = "支持 Gemini API 与 OpenAI 兼容接口", onClick = onOpenModels)
             }
             Group("能力") {
                 SettingRow(HeIcons.Plug, "连接器", value = "未连接", onClick = soon("连接器"))

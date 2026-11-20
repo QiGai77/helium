@@ -179,7 +179,7 @@ fun TasksScreen(
         SectionHeader("项目", Modifier.padding(horizontal = 24.dp), action = "新建", actionIcon = HeIcons.Plus, onAction = { toast("新建项目即将支持") })
         Spacer(Modifier.height(12.dp))
         if (projects.isEmpty()) {
-            EmptyState("还没有项目", "多步骤、多天的事（旅行、搬家、求职）会成为一个项目，有自己的对话、文件和待办。")
+            EmptyState("还没有项目", "多步骤、跨多天的任务会成为一个项目，拥有独立的对话、文件和待办。")
         } else {
             ProjectStack(projects, Modifier.padding(horizontal = 24.dp), onOpenTimeline)
         }
@@ -431,7 +431,7 @@ private fun CreateTaskSheet(onDismiss: () -> Unit, onCreate: (TaskDraft) -> Unit
             }
             Label(if (action == TaskAction.NOTIFY) "提醒我" else "到点时让 Helium")
             Field(body, { body = it; error = null }, if (action == TaskAction.NOTIFY) "喝水" else "查南京今天的天气和我今天的日历，给我 5 行以内的早报", minLines = if (action == TaskAction.NOTIFY) 1 else 3)
-            Label("名字（可选）")
+            Label("名字 · 可选")
             Field(title, { title = it }, if (action == TaskAction.NOTIFY) "默认用提醒内容" else "早报")
             Label("频率")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -451,7 +451,7 @@ private fun CreateTaskSheet(onDismiss: () -> Unit, onCreate: (TaskDraft) -> Unit
                     listOf("今天", "明天", "后天").forEachIndexed { i, l -> Chip(l, dateOffset == i) { dateOffset = i; error = null } }
                 }
             }
-            Label("时间（24 小时制）")
+            Label("时间 · 24 小时制")
             Field(time, { time = it; error = null }, "08:00")
             Spacer(Modifier.height(8.dp))
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

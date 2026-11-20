@@ -355,7 +355,7 @@ private fun AssistantMessage(m: tech.qigai.helium.ui.screens.ChatMessage, onRetr
         Column(Modifier.weight(1f)) {
             if (m.reasoning.isNotBlank()) {
                 Text(
-                    if (showReasoning) "收起思考过程" else if (m.streaming && m.text.isEmpty()) "思考中…（点开查看）" else "查看思考过程",
+                    if (showReasoning) "收起思考过程" else if (m.streaming && m.text.isEmpty()) "思考中" else "查看思考过程",
                     color = HeColors.Accent, fontSize = 13.sp,
                     modifier = Modifier.clip(HeShapes.Pill).clickable { showReasoning = !showReasoning }.padding(vertical = 2.dp),
                 )

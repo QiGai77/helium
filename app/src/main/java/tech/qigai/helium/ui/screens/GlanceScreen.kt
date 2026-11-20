@@ -326,7 +326,7 @@ private fun SourcesSheet(repo: GlanceRepository, sources: List<FeedSourceEntity>
     var bridge by remember { mutableStateOf(repo.xBridge) }
     var adding by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    SheetFrame("管理来源", "RSS / Atom、普通网页（自动找订阅源）、X 账号", onDismiss) {
+    SheetFrame("管理来源", "支持 RSS / Atom、普通网页与 X 账号", onDismiss) {
         OutlinedTextField(input, { input = it; error = null }, singleLine = true, modifier = Modifier.fillMaxWidth(),
             placeholder = { Text("粘贴网址，或 @账号") })
         error?.let { Spacer(Modifier.height(6.dp)); Text(it, fontSize = 12.sp, color = HeColors.CoralInk) }

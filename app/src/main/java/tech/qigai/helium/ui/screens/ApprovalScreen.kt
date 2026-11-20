@@ -76,7 +76,7 @@ fun ApprovalScreen(
             ) { a -> ApprovalCard(a) }
             Spacer(Modifier.height(28.dp))
             val scopes = cur.scopes.split(',').mapNotNull { runCatching { GrantScope.valueOf(it) }.getOrNull() }.ifEmpty { listOf(GrantScope.ONCE) }
-            HePillButton("批准（${scopes.first().label}）", { onDecide(cur.requestId, true, scopes.first()) }, Modifier.fillMaxWidth(), ButtonKind.PRIMARY, HeIcons.Lock)
+            HePillButton("批准 · ${scopes.first().label}", { onDecide(cur.requestId, true, scopes.first()) }, Modifier.fillMaxWidth(), ButtonKind.PRIMARY, HeIcons.Lock)
             if (scopes.size > 1) {
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

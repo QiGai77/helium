@@ -211,7 +211,7 @@ fun ModelsScreen(settings: LlmSettings, repo: SettingsRepository, onBack: () -> 
                 desc = when {
                     search.cloudConfigured -> "经 Helium Cloud 调用，Key 存在服务器 · 每千次约 \$0.75"
                     search.hasDeepSeekKey -> "直连 api.deepseek.com · 每千次约 \$0.75"
-                    else -> "中文结果更好，按次计费（每千次约 \$0.75）；需要 DeepSeek Key 或 Helium Cloud"
+                    else -> "中文结果更好，按次计费；需要 DeepSeek Key 或 Helium Cloud"
                 },
                 onSelect = {
                     if (!search.deepSeekReady) dialog = KeyDialog.DEEPSEEK
@@ -246,7 +246,7 @@ fun ModelsScreen(settings: LlmSettings, repo: SettingsRepository, onBack: () -> 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                 Icon(HeIcons.Lock, null, tint = HeColors.Ink2, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("API Key 存放在凭据保险箱（Android Keystore 加密），只用于调用对应模型", fontSize = 12.sp, color = HeColors.Ink2)
+                Text("API Key 经 Android Keystore 加密存放在凭据保险箱，只用于调用对应模型", fontSize = 12.sp, color = HeColors.Ink2)
             }
             Spacer(Modifier.height(32.dp))
         }
@@ -435,7 +435,7 @@ private fun CustomDialog(settings: LlmSettings, onDismiss: () -> Unit, onSave: (
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Color.White,
-        title = { Text("自带 API Key（OpenAI 兼容）") },
+        title = { Text("自带 OpenAI 兼容 API Key") },
         text = {
             Column {
                 Text("Base URL 填到 /v1 为止，Helium 会请求 {Base URL}/chat/completions（流式）。", fontSize = 13.sp, color = HeColors.Ink2)

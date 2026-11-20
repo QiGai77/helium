@@ -318,7 +318,7 @@ fun HeliumNavHost(nav: NavHostController = rememberNavController()) {
                         onDecide = { id, approved, grant ->
                             scope.launch {
                                 val live = app.approvals.decide(id, approved, grant)
-                                toast(if (!live) "这一步已经失效（任务已停止）" else if (approved) "已批准，Helium 继续执行" else "已拒绝，Helium 不会执行这一步")
+                                toast(if (!live) "这一步已失效" else if (approved) "已批准，Helium 继续执行" else "已拒绝，Helium 不会执行这一步")
                             }
                         },
                         onClose = { nav.popBackStack() },

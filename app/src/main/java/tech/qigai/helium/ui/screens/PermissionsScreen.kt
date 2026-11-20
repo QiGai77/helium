@@ -91,7 +91,7 @@ fun PermissionsScreen(
                     if (live.isNotEmpty()) TextButton(onClick = { confirmAll = true }) { Text("全部撤销", color = HeColors.CoralInk) }
                 }
                 Text(
-                    "授权按「工具 + 目标」生效。高风险操作（发短信、删记忆等）每次都会问你，不能长期授权；读过网页之后要发出数据也会再问。",
+                    "授权按「工具 + 目标」生效。高风险操作每次都会问你，不能长期授权；读过网页之后要发出数据也会再问。",
                     fontSize = 13.sp, lineHeight = 19.sp, color = HeColors.Ink2,
                 )
             }
