@@ -127,7 +127,7 @@ class StopLatencyTest {
             var thrown: Throwable? = null
             val job = launch {
                 try {
-                    client.stream(ep, "sys", listOf(ChatTurn(Role.USER, "hi")), "s", emptyList()).collect {}
+                    client.stream(ep, "sys", listOf(ChatTurn(Role.USER, "hi")), "s").collect {}
                 } catch (e: CancellationException) {
                     thrown = e // Expected: the job's cancellation must cancel the OkHttp call.
                 } catch (e: Exception) {

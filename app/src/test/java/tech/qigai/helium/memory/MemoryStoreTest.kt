@@ -1,6 +1,7 @@
 package tech.qigai.helium.memory
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -68,7 +69,7 @@ internal class FakeMemoryDao : MemoryDao {
 
     override suspend fun candidate(id: Long) = candidates.firstOrNull { it.id == id }
     override suspend fun pendingCandidates() = candidates.filter { it.status == CandidateStatus.PENDING }
-    override fun observePendingCandidates(): Flow<List<MemoryCandidateEntity>> = flowOf(pendingCandidates())
+    override fun observePendingCandidates(): Flow<List<MemoryCandidateEntity>> = flow { emit(pendingCandidates()) }
     override fun observeCandidates(conversationId: String): Flow<List<MemoryCandidateEntity>> =
         flowOf(candidates.filter { it.conversationId == conversationId && it.status == CandidateStatus.PENDING })
 
