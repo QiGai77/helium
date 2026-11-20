@@ -198,6 +198,12 @@ interface GrantDao {
     @Query("SELECT * FROM grants WHERE tool = :tool")
     suspend fun forTool(tool: String): List<GrantEntity>
 
+    @Query("SELECT * FROM grants ORDER BY createdAt DESC")
+    suspend fun all(): List<GrantEntity>
+
+    @Query("DELETE FROM grants")
+    suspend fun deleteAll()
+
     @Insert
     suspend fun insert(g: GrantEntity): Long
 
@@ -219,6 +225,15 @@ interface AuditDao {
     @Query("SELECT * FROM audit ORDER BY id")
     suspend fun all(): List<AuditEntity>
 
+    @Query("SELECT * FROM audit WHERE at >= :from AND at < :to ORDER BY id DESC LIMIT :limit")
+    fun observeBetween(from: Long, to: Long, limit: Int): Flow<List<AuditEntity>>
+
+    @Query("SELECT * FROM audit WHERE at >= :from AND at < :to ORDER BY id")
+    suspend fun between(from: Long, to: Long): List<AuditEntity>
+
+    @Query("SELECT DISTINCT tool FROM audit WHERE tool != '' ORDER BY tool")
+    fun observeTools(): Flow<List<String>>
+
     @Query("SELECT COUNT(*) FROM audit WHERE at >= :since")
     fun observeCountSince(since: Long): Flow<Int>
 }
@@ -230,6 +245,9 @@ interface ApprovalDao {
 
     @Query("SELECT * FROM approvals WHERE status = 'PENDING' ORDER BY createdAt")
     fun observePending(): Flow<List<ApprovalEntity>>
+
+    @Query("SELECT * FROM approvals WHERE requestId = :id")
+    suspend fun get(id: String): ApprovalEntity?
 
     @Query("UPDATE approvals SET status = :status, decidedAt = :at WHERE requestId = :id AND status = 'PENDING'")
     suspend fun decide(id: String, status: String, at: Long)

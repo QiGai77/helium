@@ -35,6 +35,12 @@ interface Tool {
     /** Sends data off the device to a third party; asks again when the run is tainted. */
     val exfiltrates: Boolean get() = false
 
+    /** Per-call form of [exfiltrates] (a GET carrying a payload in its query string counts). */
+    fun exfiltrates(args: JSONObject): Boolean = exfiltrates
+
+    /** Output is the user's private data (memory, calendar); in a tainted run, calls that echo it ask first. */
+    val readsPrivate: Boolean get() = false
+
     suspend fun run(args: JSONObject, ctx: ToolContext): ToolOutput
 }
 

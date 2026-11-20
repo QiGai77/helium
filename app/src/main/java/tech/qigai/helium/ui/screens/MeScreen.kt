@@ -59,6 +59,7 @@ fun MeScreen(
     onOpenMemory: () -> Unit,
     onOpenApproval: () -> Unit,
     onOpenAudit: () -> Unit,
+    onOpenPermissions: () -> Unit,
     memoryCount: Int,
     auditCount: Int,
     grantCount: Int,
@@ -105,7 +106,8 @@ fun MeScreen(
             }
             Group("安全") {
                 SettingRow(HeIcons.Shield, "待你确认", "发送、删除、保存重要信息前先问你", onClick = onOpenApproval)
-                SettingRow(HeIcons.List, "权限与审计", "$grantCount 项授权 · 近 7 天 $auditCount 次操作", onClick = onOpenAudit)
+                SettingRow(HeIcons.Lock, "权限", "按「工具 + 目标」的授权，逐条撤销", value = "$grantCount 项", onClick = onOpenPermissions)
+                SettingRow(HeIcons.List, "审计日志", "每次调用、审批和结果 · 可筛选、导出 JSON", value = "近 7 天 $auditCount 次", onClick = onOpenAudit)
                 SettingRow(HeIcons.Key, "凭据保险箱", value = "$vaultCount 项", onClick = onOpenModels)
             }
             Group("通用") {

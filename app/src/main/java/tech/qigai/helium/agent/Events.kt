@@ -74,6 +74,8 @@ sealed interface AgentEvent {
         val scopes: List<GrantScope>,
         val warning: String? = null,
         override val at: Long = now(),
+        /** Asked because the run read untrusted content (prompt-injection taint). */
+        val tainted: Boolean = false,
     ) : AgentEvent
 
     data class ApprovalDecision(
@@ -121,6 +123,7 @@ object EventCodec {
                     .put("detail", e.detail).put("target", e.target).put("risk", e.risk.name)
                     .put("scopes", JSONArray(e.scopes.map { it.name }))
                 e.warning?.let { o.put("warning", it) }
+                if (e.tainted) o.put("tainted", true)
             }
             is AgentEvent.ApprovalDecision -> {
                 o.put("requestId", e.requestId).put("approved", e.approved)
@@ -160,7 +163,7 @@ object EventCodec {
                     o.optString("detail"), o.optString("target"),
                     runCatching { Risk.valueOf(o.optString("risk")) }.getOrDefault(Risk.HIGH),
                     (0 until sc.length()).mapNotNull { runCatching { GrantScope.valueOf(sc.getString(it)) }.getOrNull() },
-                    o.optStr("warning"), at,
+                    o.optStr("warning"), at, o.optBoolean("tainted"),
                 )
             }
             "approval_decision" -> AgentEvent.ApprovalDecision(

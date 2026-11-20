@@ -14,6 +14,8 @@ import tech.qigai.helium.agent.search.WebSearchTool
 import tech.qigai.helium.agent.tools.CalendarReadTool
 import tech.qigai.helium.agent.tools.MemoryForgetTool
 import tech.qigai.helium.agent.tools.NotifyTool
+import tech.qigai.helium.agent.tools.SmsSendTool
+import tech.qigai.helium.data.device.AndroidSms
 import tech.qigai.helium.agent.tools.MemorySaveTool
 import tech.qigai.helium.agent.tools.MemorySearchTool
 import tech.qigai.helium.agent.tools.TimeTool
@@ -104,6 +106,7 @@ class HeliumApplication : Application() {
                 SkillDeleteTool(skills),
                 CalendarReadTool(AndroidCalendar(this), permissions),
                 NotifyTool(notifications, permissions),
+                SmsSendTool(AndroidSms(this, foreground = { permissions.foreground() }, notifyOpen = notifications::openActivity)),
                 ReminderCreateTool(taskEngine),
                 TaskCreateTool(taskEngine),
                 TaskListTool(taskEngine),

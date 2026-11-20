@@ -16,7 +16,7 @@ import tech.qigai.helium.chat.SearchText
         FeedSourceEntity::class, FeedItemEntity::class, GlanceCardEntity::class, WeatherCacheEntity::class,
         MemoryFts::class, MemoryCandidateEntity::class, SkillEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 abstract class HeliumDatabase : RoomDatabase() {
@@ -84,9 +84,7 @@ abstract class HeliumDatabase : RoomDatabase() {
             }
         }
 
-        val MIGRATIONS = arrayOf<Migration>(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
-
-        /** Fills `memories.searchText`; the AFTER UPDATE trigger puts each row into `memory_fts`. */
+                /** Fills `memories.searchText`; the AFTER UPDATE trigger puts each row into `memory_fts`. */
         private fun backfillMemorySearchText(db: SupportSQLiteDatabase) {
             val rows = ArrayList<Pair<Long, String>>()
             db.query("SELECT `id`, `text` FROM `memories`").use { c ->
@@ -94,6 +92,22 @@ abstract class HeliumDatabase : RoomDatabase() {
             }
             rows.forEach { (id, text) -> db.execSQL("UPDATE `memories` SET `searchText` = ? WHERE `id` = ?", arrayOf<Any>(text, id)) }
         }
+
+        /** M3 approvals: audit risk / taint columns + tool index, taint flag on stored approvals. */
+        val APPROVALS_V6_SQL = listOf(
+            "ALTER TABLE `audit` ADD COLUMN `risk` TEXT DEFAULT NULL",
+            "ALTER TABLE `audit` ADD COLUMN `tainted` INTEGER NOT NULL DEFAULT 0",
+            "CREATE INDEX IF NOT EXISTS `index_audit_tool` ON `audit` (`tool`)",
+            "ALTER TABLE `approvals` ADD COLUMN `tainted` INTEGER NOT NULL DEFAULT 0",
+        )
+
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                APPROVALS_V6_SQL.forEach { db.execSQL(it) }
+            }
+        }
+
+        val MIGRATIONS = arrayOf<Migration>(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
 
         /** Fills `events.searchText` for messages written before v2; the AFTER UPDATE trigger indexes them. */
         private fun backfillSearchText(db: SupportSQLiteDatabase) {

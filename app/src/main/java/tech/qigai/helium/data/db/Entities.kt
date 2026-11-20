@@ -120,8 +120,8 @@ data class GrantEntity(
     val createdAt: Long,
 )
 
-/** Append-only audit trail: every ask, approval, rejection, denial, run and error. */
-@Entity(tableName = "audit", indices = [Index("at")])
+/** Append-only audit trail: every ask, approval, rejection, denial, run, error and taint mark. */
+@Entity(tableName = "audit", indices = [Index("at"), Index("tool")])
 data class AuditEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val at: Long,
@@ -130,6 +130,11 @@ data class AuditEntity(
     val tool: String,
     val target: String,
     val detail: String,
+    // ---- v6 (M3) ----
+    /** LOW / MEDIUM / HIGH as assessed for this call; null for rows written before v6. */
+    val risk: String? = null,
+    /** The run had read untrusted content (web_fetch / web_search) when this happened. */
+    @ColumnInfo(defaultValue = "0") val tainted: Boolean = false,
 )
 
 /** Stored action review (OpenFuse pattern): an approval is a durable record, not a transient dialog. */
@@ -149,6 +154,8 @@ data class ApprovalEntity(
     val status: String,
     val createdAt: Long,
     val decidedAt: Long?,
+    // ---- v6 (M3) ----
+    @ColumnInfo(defaultValue = "0") val tainted: Boolean = false,
 )
 
 @Entity(tableName = "scheduled_tasks")

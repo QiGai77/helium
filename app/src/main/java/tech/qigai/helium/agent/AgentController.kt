@@ -26,8 +26,33 @@ interface EventSink {
     suspend fun append(conversationId: String, event: AgentEvent)
 }
 
+/**
+ * One audit row. [kind] is the outcome: ask / approve / reject / deny / run / error / taint / skip
+ * ([AuditKinds]). [tainted] marks anything that happened after the run read untrusted content.
+ */
+data class AuditRecord(
+    val conversationId: String,
+    val kind: String,
+    val tool: String,
+    val target: String,
+    val detail: String,
+    val risk: Risk? = null,
+    val tainted: Boolean = false,
+)
+
+object AuditKinds {
+    const val ASK = "ask"
+    const val APPROVE = "approve"
+    const val REJECT = "reject"
+    const val DENY = "deny"
+    const val RUN = "run"
+    const val ERROR = "error"
+    const val TAINT = "taint"
+    const val SKIP = "skip"
+}
+
 fun interface AuditSink {
-    suspend fun record(conversationId: String, kind: String, tool: String, target: String, detail: String)
+    suspend fun record(entry: AuditRecord)
 }
 
 interface AgentListener {
@@ -47,7 +72,7 @@ class AgentController(
     private val sentinel: Sentinel,
     private val gate: ApprovalGate,
     private val sink: EventSink,
-    private val audit: AuditSink = AuditSink { _, _, _, _, _ -> },
+    private val audit: AuditSink = AuditSink { },
     private val maxSteps: Int = 12,
     private val toolTimeoutMs: Long = 60_000,
 ) {
@@ -58,7 +83,10 @@ class AgentController(
             sink.append(conversationId, e)
             listener.onEvent(e)
         }
-        var tainted = false
+        // Untrusted content already in the context (a page read earlier in this conversation) still taints the run.
+        var tainted = events.any { it is AgentEvent.ToolObservation && it.tainted }
+        val sensitive = LinkedHashSet<String>()
+        events.forEach { e -> if (e is AgentEvent.ToolObservation && !e.isError && tools[e.tool]?.readsPrivate == true) sensitive += Taint.fragments(e.output) }
         listener.onState(AgentState.RUNNING)
         for (step in 1..maxSteps) {
             var partialText = ""
@@ -85,9 +113,16 @@ class AgentController(
                 listener.onState(AgentState.FINISHED)
                 return AgentState.FINISHED
             }
+            var rejected = false
             for (call in turn.toolCalls) {
+                if (rejected) {
+                    // A rejection ends the whole batch (opencode rejects the rest of the message's pending asks).
+                    audit.record(AuditRecord(conversationId, AuditKinds.SKIP, call.name, "", "上一步被拒绝，跳过", tainted = tainted))
+                    emit(AgentEvent.ToolObservation(call.id, call.name, "用户拒绝了这一轮的上一个操作，这一步没有执行。", isError = true))
+                    continue
+                }
                 val obs = try {
-                    execute(conversationId, call, tainted, ::emit, listener)
+                    execute(conversationId, call, tainted, sensitive, ::emit, listener)
                 } catch (e: CancellationException) {
                     kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
                         emit(AgentEvent.ToolObservation(call.id, call.name, "已被用户停止", isError = true))
@@ -95,7 +130,12 @@ class AgentController(
                     }
                     throw e
                 }
+                if (obs.tainted && !tainted) {
+                    audit.record(AuditRecord(conversationId, AuditKinds.TAINT, call.name, tools[call.name]?.let { t -> runCatching { t.target(JSONObject(call.arguments.ifBlank { "{}" })) }.getOrNull() } ?: "", "读取了外部内容，之后发出数据或高风险操作都要先确认", tainted = true))
+                }
                 tainted = tainted || obs.tainted
+                if (!obs.isError && tools[call.name]?.readsPrivate == true) sensitive += Taint.fragments(obs.output)
+                if (obs.isError && obs.output.startsWith(REJECTED)) rejected = true
                 emit(obs)
             }
             if (StuckDetector.isStuck(events)) {
@@ -113,6 +153,7 @@ class AgentController(
         conversationId: String,
         call: ToolCall,
         tainted: Boolean,
+        sensitive: Collection<String>,
         emit: suspend (AgentEvent) -> Unit,
         listener: AgentListener,
     ): AgentEvent.ToolObservation {
@@ -123,26 +164,33 @@ class AgentController(
             return AgentEvent.ToolObservation(call.id, call.name, "参数不是合法 JSON：${call.arguments.take(200)}", isError = true)
         }
         val target = tool.target(args)
-        when (val v = sentinel.guard(tool, args, conversationId, tainted)) {
+        val risk = RiskPolicy.effective(tool, args)
+        var allowedBy = ""
+        when (val v = sentinel.guard(tool, args, conversationId, tainted, sensitive)) {
             is Verdict.Deny -> {
-                audit.record(conversationId, "deny", tool.name, target, v.reason)
+                audit.record(AuditRecord(conversationId, AuditKinds.DENY, tool.name, target, v.reason, risk, tainted))
                 return AgentEvent.ToolObservation(call.id, call.name, "被安全规则拒绝：${v.reason}", isError = true)
             }
             is Verdict.Ask -> {
                 val req = AgentEvent.ApprovalRequest(
-                    UUID.randomUUID().toString(), call.id, tool.name, tool.title(args), tool.detail(args), target, v.risk, v.scopes, v.warning,
+                    UUID.randomUUID().toString(), call.id, tool.name, tool.title(args), tool.detail(args), target, v.risk, v.scopes, v.warning, tainted = v.tainted,
                 )
                 emit(req)
-                audit.record(conversationId, "ask", tool.name, target, req.title)
+                audit.record(AuditRecord(conversationId, AuditKinds.ASK, tool.name, target, req.title + "\n" + req.detail, v.risk, v.tainted))
                 listener.onState(AgentState.AWAITING_APPROVAL)
-                val decision = gate.await(conversationId, req)
+                val raw = gate.await(conversationId, req)
+                // Never trust the scope coming back: only what the card offered, and HIGH stays "仅这一次".
+                val decision = if (raw.approved) raw.copy(scope = RiskPolicy.clamp(v.scopes, raw.scope)) else raw.copy(scope = null)
                 emit(decision)
                 listener.onState(AgentState.RUNNING)
-                audit.record(conversationId, if (decision.approved) "approve" else "reject", tool.name, target, decision.scope?.label ?: "")
-                if (!decision.approved) return AgentEvent.ToolObservation(call.id, call.name, "用户拒绝了这个操作。不要再尝试同样的操作，除非用户改变主意。", isError = true)
-                decision.scope?.let { s -> sentinel.remember(tool, args, s, conversationId) }
+                audit.record(
+                    AuditRecord(conversationId, if (decision.approved) AuditKinds.APPROVE else AuditKinds.REJECT, tool.name, target, decision.scope?.label ?: "", v.risk, v.tainted),
+                )
+                if (!decision.approved) return AgentEvent.ToolObservation(call.id, call.name, REJECTED, isError = true)
+                if (!v.tainted) decision.scope?.let { s -> sentinel.remember(tool, args, s, conversationId) }
+                allowedBy = "已批准（${decision.scope?.label ?: GrantScope.ONCE.label}）"
             }
-            is Verdict.Allow -> Unit
+            is Verdict.Allow -> allowedBy = v.reason
         }
         val started = now()
         val out = try {
@@ -155,8 +203,14 @@ class AgentController(
             tech.qigai.helium.agent.tools.ToolOutput("执行失败：${e.message ?: e.javaClass.simpleName}", isError = true)
         }
         val ms = now() - started
-        audit.record(conversationId, if (out.isError) "error" else "run", tool.name, target, out.text.take(200))
+        audit.record(
+            AuditRecord(conversationId, if (out.isError) AuditKinds.ERROR else AuditKinds.RUN, tool.name, target, "[$allowedBy] " + out.text.take(300), risk, tainted),
+        )
         return AgentEvent.ToolObservation(call.id, call.name, out.text, out.isError, ms, tool.readsUntrusted && !out.isError)
+    }
+
+    companion object {
+        const val REJECTED = "用户拒绝了这个操作。不要再尝试同样的操作，除非用户改变主意。"
     }
 
 }
