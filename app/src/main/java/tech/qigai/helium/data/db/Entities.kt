@@ -1,5 +1,6 @@
 package tech.qigai.helium.data.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -87,15 +88,47 @@ data class ApprovalEntity(
 data class ScheduledTaskEntity(
     @PrimaryKey val id: String,
     val title: String,
+    /** What the agent is asked to do each run (AGENT), or the reminder text (NOTIFY). */
     val prompt: String,
-    /** ONCE / DAILY / WEEKLY */
+    /** ONCE / DAILY / WEEKLY ([tech.qigai.helium.tasks.TaskKind]). */
     val kind: String,
     /** "HH:mm" local time. */
     val timeOfDay: String,
     /** Bitmask Mon=1 … Sun=64, for WEEKLY. */
     val weekdays: Int,
     val enabled: Boolean,
+    /** The pending fire time; claimed (compare-and-set) by whichever trigger runs it first. Null = never again. */
     val nextRunAt: Long?,
     val lastStatus: String?,
     val createdAt: Long,
+    // ---- v3 (M5) ----
+    /** AGENT / NOTIFY ([tech.qigai.helium.tasks.TaskAction]). */
+    @ColumnInfo(defaultValue = "AGENT") val action: String = "AGENT",
+    /** ONCE only: the absolute fire time. */
+    val onceAt: Long? = null,
+    /** The task's own conversation; every run appends to it. */
+    val conversationId: String? = null,
+    /** Consecutive failures, drives the exponential backoff; reset on success. */
+    @ColumnInfo(defaultValue = "0") val failCount: Int = 0,
+    val lastRunAt: Long? = null,
+)
+
+/** One execution of a scheduled task. Its events live in the task's conversation between startedAt and finishedAt. */
+@Entity(tableName = "task_runs", indices = [Index("taskId")])
+data class TaskRunEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val taskId: String,
+    val conversationId: String,
+    /** SCHEDULED / RETRY / MANUAL / CATCH_UP / MISSED ([tech.qigai.helium.tasks.RunCause]). */
+    val cause: String,
+    /** 1 for the first try of a fire, 2+ for retries. */
+    val attempt: Int,
+    val scheduledFor: Long?,
+    val startedAt: Long,
+    val finishedAt: Long?,
+    /** RUNNING / SUCCESS / FAILED / SKIPPED ([tech.qigai.helium.tasks.RunStatus]). */
+    val status: String,
+    val error: String?,
+    val summary: String?,
+    val nextRetryAt: Long?,
 )
