@@ -348,16 +348,41 @@ private fun ChatItem.at(): Long? = when (this) {
 
 @Composable
 private fun AssistantMessage(m: tech.qigai.helium.ui.screens.ChatMessage, onRetry: () -> Unit, onOpenModels: () -> Unit) {
-    var showReasoning by remember { mutableStateOf(false) }
+    var showReasoning by remember(m.id) { mutableStateOf(false) }
+    var userToggled by remember(m.id) { mutableStateOf(false) }
+    var thinkingMs by remember(m.id) { androidx.compose.runtime.mutableLongStateOf(0L) }
+    val isThinking = m.streaming && m.reasoning.isNotBlank() && m.text.isEmpty()
+    LaunchedEffect(isThinking) {
+        if (isThinking) {
+            val start = System.currentTimeMillis() - thinkingMs
+            while (true) {
+                thinkingMs = System.currentTimeMillis() - start
+                kotlinx.coroutines.delay(100)
+            }
+        }
+    }
+    LaunchedEffect(m.streaming, m.text.isNotEmpty(), m.reasoning.isNotBlank()) {
+        if (!userToggled) {
+            showReasoning = m.streaming && m.reasoning.isNotBlank() && m.text.isEmpty()
+        }
+    }
+    val secLabel = if (thinkingMs >= 100L) " %.1fs".format(thinkingMs / 1000.0) else ""
     Row(Modifier.fillMaxWidth().animateContentSize()) {
         FlowerAvatar(Modifier.padding(top = 2.dp), size = 24.dp, spinning = m.streaming)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             if (m.reasoning.isNotBlank()) {
                 Text(
-                    if (showReasoning) "收起思考过程" else if (m.streaming && m.text.isEmpty()) "思考中" else "查看思考过程",
+                    when {
+                        isThinking -> if (showReasoning) "深度思考中$secLabel · 收起" else "深度思考中$secLabel · 展开"
+                        showReasoning -> "收起思考过程$secLabel"
+                        else -> "已深度思考$secLabel · 查看过程"
+                    },
                     color = HeColors.Accent, fontSize = 13.sp,
-                    modifier = Modifier.clip(HeShapes.Pill).clickable { showReasoning = !showReasoning }.padding(vertical = 2.dp),
+                    modifier = Modifier.clip(HeShapes.Pill).clickable {
+                        userToggled = true
+                        showReasoning = !showReasoning
+                    }.padding(vertical = 2.dp),
                 )
                 if (showReasoning) {
                     Spacer(Modifier.height(6.dp))
@@ -394,6 +419,9 @@ private fun AssistantMessage(m: tech.qigai.helium.ui.screens.ChatMessage, onRetr
             if (m.stopped) {
                 Spacer(Modifier.height(6.dp))
                 Text("已停止", color = HeColors.Ink3, fontSize = 12.sp)
+            } else if (!m.streaming && !m.interrupted && m.error == null && !m.model.isNullOrBlank()) {
+                Spacer(Modifier.height(6.dp))
+                Text(m.model, color = HeColors.Ink3, fontSize = 11.sp)
             }
             if (m.interrupted) {
                 Spacer(Modifier.height(8.dp))

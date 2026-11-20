@@ -7,6 +7,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import tech.qigai.helium.data.settings.ThemeMode
 import tech.qigai.helium.ui.nav.HeliumNavHost
 import tech.qigai.helium.ui.theme.HeliumTheme
 
@@ -21,7 +26,22 @@ class MainActivity : ComponentActivity() {
         app.permissions.attach(this)
         routeFrom(intent)
         setContent {
-            HeliumTheme {
+            val mode by app.settings.themeMode.collectAsState()
+            val darkTheme = when (mode) {
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+                ThemeMode.SYSTEM -> isSystemInDarkTheme()
+            }
+            DisposableEffect(darkTheme) {
+                val style = if (darkTheme) {
+                    SystemBarStyle.dark(Color.TRANSPARENT)
+                } else {
+                    SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+                }
+                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+                onDispose {}
+            }
+            HeliumTheme(darkTheme = darkTheme) {
                 HeliumNavHost()
             }
         }

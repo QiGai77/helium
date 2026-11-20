@@ -76,8 +76,12 @@ internal object WireFormat {
                             JSONObject().put("id", c.id).put("type", "function")
                                 .put("function", JSONObject().put("name", c.name).put("arguments", c.arguments))
                         }))
-                        // Thinking models behind OpenCode Go (DeepSeek / Kimi / GLM) want their reasoning echoed on tool turns.
-                        if (e.provider == ProviderId.OPENCODE_GO && m.reasoning.isNotBlank()) o.put("reasoning_content", m.reasoning)
+                        // DeepSeek Reasoner / thinking models require reasoning_content echoed on assistant tool-call turns.
+                        val needsReasoningEcho = e.provider == ProviderId.OPENCODE_GO ||
+                            e.baseUrl.contains("deepseek", ignoreCase = true) ||
+                            e.model.contains("reasoner", ignoreCase = true) ||
+                            e.model.contains("r1", ignoreCase = true)
+                        if (needsReasoningEcho && m.reasoning.isNotBlank()) o.put("reasoning_content", m.reasoning)
                     }
                     arr.put(o)
                 }

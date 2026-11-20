@@ -14,7 +14,15 @@ import tech.qigai.helium.data.llm.ProviderId
 import tech.qigai.helium.data.llm.WireApi
 
 /** Which backend `web_search` uses. Exa's public MCP is free and keyless, so it is the default and the fallback. */
-enum class SearchProviderId(val label: String) { EXA_MCP("Exa（免费）"), DEEPSEEK("DeepSeek") }
+enum class SearchProviderId(val label: String) { EXA_MCP("Exa · 免费"), DEEPSEEK("DeepSeek") }
+
+enum class ThemeMode(val label: String) { SYSTEM("跟随系统"), LIGHT("浅色"), DARK("深色") }
+
+data class UserProfile(
+    val name: String = "本机",
+    val city: String = "上海",
+    val bio: String = "",
+)
 
 /**
  * Search + Helium Cloud (the Cloudflare Worker) settings. Secrets are only exposed as booleans. DeepSeek search goes
@@ -69,6 +77,43 @@ class SettingsRepository(context: Context) {
 
     private val _search = MutableStateFlow(loadSearch())
     val search: StateFlow<SearchSettings> = _search.asStateFlow()
+
+    private val _themeMode = MutableStateFlow(loadThemeMode())
+    val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
+
+    private val _profile = MutableStateFlow(loadProfile())
+    val profile: StateFlow<UserProfile> = _profile.asStateFlow()
+
+    private val _notificationsEnabled = MutableStateFlow(prefs.getBoolean(K_NOTIFICATIONS, true))
+    val notificationsEnabled: StateFlow<Boolean> = _notificationsEnabled.asStateFlow()
+
+    private fun loadThemeMode(): ThemeMode =
+        runCatching { ThemeMode.valueOf(prefs.getString(K_THEME, null) ?: "") }.getOrDefault(ThemeMode.SYSTEM)
+
+    fun setThemeMode(mode: ThemeMode) {
+        prefs.edit().putString(K_THEME, mode.name).apply()
+        _themeMode.value = mode
+    }
+
+    private fun loadProfile(): UserProfile = UserProfile(
+        name = prefs.getString(K_PROFILE_NAME, null)?.takeIf { it.isNotBlank() } ?: "本机",
+        city = prefs.getString(K_PROFILE_CITY, null)?.takeIf { it.isNotBlank() } ?: "上海",
+        bio = prefs.getString(K_PROFILE_BIO, null).orEmpty(),
+    )
+
+    fun setProfile(profile: UserProfile) {
+        prefs.edit()
+            .putString(K_PROFILE_NAME, profile.name.trim().ifBlank { "本机" })
+            .putString(K_PROFILE_CITY, profile.city.trim().ifBlank { "上海" })
+            .putString(K_PROFILE_BIO, profile.bio.trim())
+            .apply()
+        _profile.value = loadProfile()
+    }
+
+    fun setNotificationsEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(K_NOTIFICATIONS, enabled).apply()
+        _notificationsEnabled.value = enabled
+    }
 
     private fun loadSearch() = SearchSettings(
         provider = runCatching { SearchProviderId.valueOf(prefs.getString(K_SEARCH, null) ?: "") }.getOrDefault(SearchProviderId.EXA_MCP),
@@ -214,5 +259,10 @@ class SettingsRepository(context: Context) {
         const val V_CLOUD_TOKEN = "key.cloud_token"
         const val V_DEEPSEEK = "key.deepseek"
         const val DEEPSEEK_BASE = "https://api.deepseek.com"
+        const val K_THEME = "theme_mode"
+        const val K_PROFILE_NAME = "profile_name"
+        const val K_PROFILE_CITY = "profile_city"
+        const val K_PROFILE_BIO = "profile_bio"
+        const val K_NOTIFICATIONS = "notifications_enabled"
     }
 }
