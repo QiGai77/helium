@@ -19,6 +19,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -38,6 +40,8 @@ import androidx.compose.ui.unit.sp
 import tech.qigai.helium.BuildConfig
 import tech.qigai.helium.data.llm.ProviderId
 import tech.qigai.helium.data.settings.LlmSettings
+import tech.qigai.helium.data.settings.ThemeMode
+import tech.qigai.helium.data.settings.UserProfile
 import tech.qigai.helium.ui.components.ButtonKind
 import tech.qigai.helium.ui.components.GlassIcon
 import tech.qigai.helium.ui.components.HePillButton
@@ -53,6 +57,9 @@ import tech.qigai.helium.ui.theme.HeShapes
 @Composable
 fun MeScreen(
     settings: LlmSettings,
+    profile: UserProfile = UserProfile(),
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
+    notificationsEnabled: Boolean = true,
     vaultCount: Int,
     onBack: () -> Unit,
     onOpenModels: () -> Unit,
@@ -60,12 +67,18 @@ fun MeScreen(
     onOpenApproval: () -> Unit,
     onOpenAudit: () -> Unit,
     onOpenPermissions: () -> Unit,
+    onUpdateProfile: (UserProfile) -> Unit = {},
+    onChangeTheme: (ThemeMode) -> Unit = {},
+    onToggleNotifications: (Boolean) -> Unit = {},
     memoryCount: Int,
+    skillCount: Int = 0,
     auditCount: Int,
     grantCount: Int,
     toast: (String) -> Unit,
 ) {
     var about by remember { mutableStateOf(false) }
+    var editingProfile by remember { mutableStateOf(false) }
+    var pickingTheme by remember { mutableStateOf(false) }
     val soon = { name: String -> { toast("「$name」即将支持") } }
     val providerLine = when (settings.provider) {
         ProviderId.OPENCODE_GO -> "默认模型 OpenCode Go · ${settings.activeModelLabel}"
@@ -84,21 +97,21 @@ fun MeScreen(
                     ) { Icon(HeIcons.Person, null, tint = Color.White, modifier = Modifier.size(32.dp)) }
                     Spacer(Modifier.width(16.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("本机", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                        Text("对话、记忆和授权只保存在这台手机", color = Color.White.copy(alpha = 0.85f), fontSize = 13.sp)
+                        Text(profile.name, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                        Text("${profile.city} · 对话、记忆和授权只保存在这台手机", color = Color.White.copy(alpha = 0.85f), fontSize = 13.sp)
                         Spacer(Modifier.height(6.dp))
                         HeTag("v${BuildConfig.VERSION_NAME}", TagKind.GLASS, dot = false, height = 26.dp, fontSize = 12)
                     }
                 }
             }
             Group("账户") {
-                SettingRow(HeIcons.Person, "个人资料", "姓名 · 头像 · 邮箱", onClick = soon("个人资料"))
+                SettingRow(HeIcons.Person, "个人资料", "${profile.name} · ${profile.city}", onClick = { editingProfile = true })
                 SettingRow(HeIcons.Link, "Google 账号", "连接 Gmail · 日历 · 云端硬盘", trailingTag = "未连接", onClick = soon("Google 账号连接"))
                 SettingRow(HeIcons.Cpu, "模型与推理", providerLine, sub2 = "支持 Gemini API 与 OpenAI 兼容接口", onClick = onOpenModels)
             }
             Group("能力") {
                 SettingRow(HeIcons.Plug, "连接器", value = "未连接", onClick = soon("连接器"))
-                SettingRow(HeIcons.Sparkle, "技能", value = "0 个", onClick = onOpenMemory)
+                SettingRow(HeIcons.Sparkle, "技能", value = "$skillCount 个", onClick = onOpenMemory)
                 SettingRow(HeIcons.Server, "MCP", value = "未添加", onClick = soon("MCP"))
             }
             Group("记忆与文件") {
@@ -111,8 +124,12 @@ fun MeScreen(
                 SettingRow(HeIcons.Key, "凭据保险箱", value = "$vaultCount 项", onClick = onOpenModels)
             }
             Group("通用") {
-                SettingRow(HeIcons.Bell, "通知", value = "开", onClick = soon("通知"))
-                SettingRow(HeIcons.Palette, "外观", value = "浅色", onClick = soon("外观"))
+                SettingRow(HeIcons.Bell, "通知", value = if (notificationsEnabled) "开" else "关", onClick = {
+                    val next = !notificationsEnabled
+                    onToggleNotifications(next)
+                    toast(if (next) "已开启通知" else "已关闭通知")
+                })
+                SettingRow(HeIcons.Palette, "外观", value = themeMode.label, onClick = { pickingTheme = true })
                 SettingRow(HeIcons.Globe, "语言", value = "简体中文", onClick = soon("语言"))
                 SettingRow(HeIcons.Info, "关于", value = "v${BuildConfig.VERSION_NAME}", onClick = { about = true })
             }
@@ -120,6 +137,58 @@ fun MeScreen(
         }
     }
     if (about) AboutDialog { about = false }
+    if (editingProfile) ProfileDialog(profile, onDismiss = { editingProfile = false }) { updated ->
+        onUpdateProfile(updated)
+        editingProfile = false
+        toast("已保存个人资料")
+    }
+    if (pickingTheme) ThemeDialog(themeMode, onDismiss = { pickingTheme = false }) { selected ->
+        onChangeTheme(selected)
+        pickingTheme = false
+    }
+}
+
+@Composable
+private fun ProfileDialog(current: UserProfile, onDismiss: () -> Unit, onSave: (UserProfile) -> Unit) {
+    var name by remember { mutableStateOf(current.name) }
+    var city by remember { mutableStateOf(current.city) }
+    var bio by remember { mutableStateOf(current.bio) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("个人资料") },
+        text = {
+            Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(name, { name = it }, singleLine = true, label = { Text("称呼") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(city, { city = it }, singleLine = true, label = { Text("所在城市") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(bio, { bio = it }, label = { Text("个人备注") }, minLines = 2, maxLines = 4, modifier = Modifier.fillMaxWidth())
+            }
+        },
+        confirmButton = { TextButton(onClick = { onSave(UserProfile(name, city, bio)) }) { Text("保存") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+    )
+}
+
+@Composable
+private fun ThemeDialog(current: ThemeMode, onDismiss: () -> Unit, onSelect: (ThemeMode) -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("外观") },
+        text = {
+            Column {
+                ThemeMode.entries.forEach { mode ->
+                    Row(
+                        Modifier.fillMaxWidth().clickable { onSelect(mode) }.padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = mode == current, onClick = { onSelect(mode) })
+                        Spacer(Modifier.width(8.dp))
+                        Text(mode.label, fontSize = 15.sp, color = HeColors.Ink)
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("关闭") } },
+    )
 }
 
 @Composable

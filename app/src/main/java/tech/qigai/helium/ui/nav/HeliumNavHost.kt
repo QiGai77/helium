@@ -267,8 +267,15 @@ fun HeliumNavHost(nav: NavHostController = rememberNavController()) {
                     )
                 }
                 composable(Routes.ME) {
+                    val userProfile by app.settings.profile.collectAsState()
+                    val themeMode by app.settings.themeMode.collectAsState()
+                    val notificationsEnabled by app.settings.notificationsEnabled.collectAsState()
+                    val skillRows by app.skills.observeAll().collectAsState(initial = emptyList())
                     MeScreen(
                         settings = settings,
+                        profile = userProfile,
+                        themeMode = themeMode,
+                        notificationsEnabled = notificationsEnabled,
                         vaultCount = app.settings.vaultCount,
                         onBack = { nav.popBackStack() },
                         onOpenModels = { open(Routes.MODELS) },
@@ -276,7 +283,11 @@ fun HeliumNavHost(nav: NavHostController = rememberNavController()) {
                         onOpenApproval = { open(Routes.APPROVAL) },
                         onOpenAudit = { open(Routes.AUDIT) },
                         onOpenPermissions = { open(Routes.PERMISSIONS) },
+                        onUpdateProfile = app.settings::setProfile,
+                        onChangeTheme = app.settings::setThemeMode,
+                        onToggleNotifications = app.settings::setNotificationsEnabled,
                         memoryCount = memories.size,
+                        skillCount = skillRows.size,
                         auditCount = auditWeek,
                         grantCount = grants.size,
                         toast = toast,
