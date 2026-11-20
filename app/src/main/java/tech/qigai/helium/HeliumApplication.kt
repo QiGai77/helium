@@ -38,7 +38,7 @@ import tech.qigai.helium.data.media.ImageStore
 import tech.qigai.helium.data.settings.SearchProviderId
 import tech.qigai.helium.data.settings.SettingsRepository
 import tech.qigai.helium.data.device.AndroidCalendar
-import tech.qigai.helium.data.device.AndroidCalendarWriter
+import tech.qigai.helium.agent.tools.AndroidCalendarWriter
 import tech.qigai.helium.tasks.HeliumNotifications
 import tech.qigai.helium.tasks.PermissionBroker
 import tech.qigai.helium.tasks.ReminderCreateTool
