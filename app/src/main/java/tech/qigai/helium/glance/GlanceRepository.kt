@@ -355,15 +355,17 @@ class GlanceRepository(
     // ------------------------------------------------------------------ all
 
     /** Worker + pull-to-refresh entry. [foreground] allows a location fix (background location isn't requested). */
-    suspend fun refreshAll(force: Boolean, foreground: Boolean): Unit = lock.withLock {
-        _busy.value = true
-        try {
-            refreshWeather(force, useLocation = foreground)
-            refreshFeeds()
-            refreshCards(force)
-            runCatching { writeReasons() }
-        } finally {
-            _busy.value = false
+    suspend fun refreshAll(force: Boolean, foreground: Boolean) {
+        lock.withLock {
+            _busy.value = true
+            try {
+                refreshWeather(force, useLocation = foreground)
+                refreshFeeds()
+                refreshCards(force)
+                runCatching { writeReasons() }
+            } finally {
+                _busy.value = false
+            }
         }
     }
 

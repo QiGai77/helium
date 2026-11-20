@@ -73,7 +73,7 @@ class LocationResolver(private val context: Context, private val http: OkHttpCli
         val g = Geocoder(context, Locale.SIMPLIFIED_CHINESE)
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             withTimeoutOrNull(6_000) {
-                suspendCancellableCoroutine { cont ->
+                suspendCancellableCoroutine<Address?> { cont ->
                     g.getFromLocation(lat, lon, 1, object : Geocoder.GeocodeListener {
                         override fun onGeocode(addresses: MutableList<Address>) { if (cont.isActive) cont.resume(addresses.firstOrNull()) }
                         override fun onError(errorMessage: String?) { if (cont.isActive) cont.resume(null) }

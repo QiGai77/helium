@@ -270,15 +270,14 @@ private fun FeedList(
         }
         Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
             items.forEachIndexed { i, row ->
-                val it = row
                 if (i > 0) HorizontalDivider(color = HeColors.Hair)
                 Column(
-                    Modifier.fillMaxWidth().clip(HeShapes.Row).clickable(enabled = it.link.isNotBlank()) { onOpen(row) }.padding(horizontal = 4.dp, vertical = 12.dp),
+                    Modifier.fillMaxWidth().clip(HeShapes.Row).clickable(enabled = row.link.isNotBlank()) { onOpen(row) }.padding(horizontal = 4.dp, vertical = 12.dp),
                 ) {
-                    Text(it.title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = HeColors.Ink, lineHeight = 21.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(row.title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = HeColors.Ink, lineHeight = 21.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Spacer(Modifier.height(3.dp))
-                    Text("${it.sourceTitle} · ${ago(it.publishedAt)}", fontSize = 12.sp, color = HeColors.Ink3, maxLines = 1)
-                    val reason = it.reason
+                    Text("${row.sourceTitle} · ${ago(row.publishedAt)}", fontSize = 12.sp, color = HeColors.Ink3, maxLines = 1)
+                    val reason = row.reason
                     if (reason != null) {
                         Spacer(Modifier.height(6.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -286,9 +285,9 @@ private fun FeedList(
                             Spacer(Modifier.width(6.dp))
                             Text("为什么推给你：$reason", fontSize = 12.sp, color = HeColors.Ink2, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
-                    } else if (it.summary.isNotBlank()) {
+                    } else if (row.summary.isNotBlank()) {
                         Spacer(Modifier.height(4.dp))
-                        Text(it.summary, fontSize = 13.sp, color = HeColors.Ink2, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 19.sp)
+                        Text(row.summary, fontSize = 13.sp, color = HeColors.Ink2, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 19.sp)
                     }
                 }
             }
