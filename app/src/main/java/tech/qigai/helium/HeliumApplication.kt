@@ -27,6 +27,8 @@ import tech.qigai.helium.data.db.TaskRepository
 import tech.qigai.helium.data.llm.LlmClient
 import tech.qigai.helium.data.settings.SearchProviderId
 import tech.qigai.helium.data.settings.SettingsRepository
+import tech.qigai.helium.glance.GlanceRefreshWorker
+import tech.qigai.helium.glance.GlanceRepository
 
 /** Composition root: one instance of every repository, the tool registry and the sentinel. */
 class HeliumApplication : Application() {
@@ -41,6 +43,7 @@ class HeliumApplication : Application() {
     val audit by lazy { AuditRepository(db) }
     val approvals by lazy { ApprovalBroker(db) }
     val tasks by lazy { TaskRepository(db) }
+    val glance by lazy { GlanceRepository(this, db, LlmClient.defaultHttp, LlmClient.USER_AGENT, settings, memories) }
 
     val exaSearch: SearchProvider by lazy {
         ExaMcpSearch(
@@ -82,5 +85,7 @@ class HeliumApplication : Application() {
             approvals.expireStale()
             grants.purgeExpired()
         }
+        // 速览: hourly weather / feeds / custom cards refresh.
+        runCatching { GlanceRefreshWorker.schedule(this) }
     }
 }

@@ -108,10 +108,14 @@ dependencies {
     implementation("androidx.room:room-ktx:$room")
     ksp("androidx.room:room-compiler:$room")
 
+    implementation("androidx.work:work-runtime-ktx:2.10.0")
+    implementation("androidx.browser:browser:1.8.0")
+
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     testImplementation("org.json:json:20240303")
+    testImplementation("net.sf.kxml:kxml2:2.3.0")
 }

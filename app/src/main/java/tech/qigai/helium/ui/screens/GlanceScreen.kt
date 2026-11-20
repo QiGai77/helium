@@ -2,7 +2,9 @@
 
 package tech.qigai.helium.ui.screens
 
-import tech.qigai.helium.data.model.GlanceToday
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -31,11 +33,13 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -46,134 +50,154 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import tech.qigai.helium.HeliumApplication
+import tech.qigai.helium.data.db.FeedItemRow
+import tech.qigai.helium.data.db.FeedSourceEntity
 import tech.qigai.helium.data.model.CardSize
-import tech.qigai.helium.data.model.GlanceCard
-import tech.qigai.helium.data.model.HeroEvent
-import tech.qigai.helium.data.model.Highlight
-import tech.qigai.helium.data.model.Source
-import tech.qigai.helium.data.model.XPost
+import tech.qigai.helium.glance.CardDefinition
+import tech.qigai.helium.glance.CardLine
+import tech.qigai.helium.glance.CardView
+import tech.qigai.helium.glance.GlanceRepository
+import tech.qigai.helium.glance.WeatherView
+import tech.qigai.helium.glance.openInBrowser
 import tech.qigai.helium.ui.components.ButtonKind
 import tech.qigai.helium.ui.components.GlassIcon
 import tech.qigai.helium.ui.components.GlassShape
 import tech.qigai.helium.ui.components.HePillButton
 import tech.qigai.helium.ui.components.HeTag
-import tech.qigai.helium.ui.components.HeroSurface
 import tech.qigai.helium.ui.components.Illo
 import tech.qigai.helium.ui.components.RoundIconButton
 import tech.qigai.helium.ui.components.SectionHeader
 import tech.qigai.helium.ui.components.TagKind
 import tech.qigai.helium.ui.components.WhiteCard
 import tech.qigai.helium.ui.icons.HeIcons
-import tech.qigai.helium.ui.illo.IlloKind
 import tech.qigai.helium.ui.illo.IlloTone
 import tech.qigai.helium.ui.theme.HeColors
 import tech.qigai.helium.ui.theme.HeNum
 import tech.qigai.helium.ui.theme.HeShapes
+import java.time.Instant
+import java.time.ZoneId
 
-/** 07 速览 — empty until real sources (weather, calendar, RSS, X) are connected in M6. */
+/** 07 速览 — real weather, the user's RSS / web / X sources with "为什么推给你", and generated custom cards. */
 @Composable
-fun GlanceScreen(today: GlanceToday?, onOpenMe: () -> Unit, toast: (String) -> Unit) {
-    if (today == null) {
-        Column(Modifier.fillMaxSize()) {
-            RootHeader(title = "今日速览", eyebrow = todayLabel(), onAvatar = onOpenMe)
-            EmptyState(
-                "速览还没有数据源",
-                "接入天气、日历、RSS 和 X 之后，这里每天会整理出和你有关的要点，并写明为什么推给你。",
-                Modifier.weight(1f),
-            )
+fun GlanceScreen(onOpenMe: () -> Unit, toast: (String) -> Unit) {
+    val app = LocalContext.current.applicationContext as HeliumApplication
+    val repo = app.glance
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val weather by repo.weather.collectAsState(initial = null)
+    val sources by repo.sources.collectAsState(initial = emptyList())
+    val items by repo.items.collectAsState(initial = emptyList())
+    val cards by repo.cards.collectAsState(initial = emptyList())
+    val busy by repo.busy.collectAsState()
+    var filter by remember { mutableStateOf<Long?>(null) }
+    var sourcesSheet by remember { mutableStateOf(false) }
+    var citySheet by remember { mutableStateOf(false) }
+    var cardSheet by remember { mutableStateOf(false) }
+    var editCards by remember { mutableStateOf(false) }
+    val modelReady = remember { repo.modelReady() }
+
+    val locationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        scope.launch {
+            repo.useDeviceLocation().onFailure { toast("天气刷新失败：${it.message}") }
+            if (!ok) toast("没有定位权限，天气用的是${repo.manualPlace?.name ?: "默认城市南京"}")
         }
-        return
     }
-    GlanceContent(today, onOpenMe, toast)
-}
 
-@Composable
-private fun GlanceContent(today: GlanceToday, onOpenMe: () -> Unit, toast: (String) -> Unit) {
-    var source by remember { mutableStateOf(Source.ALL) }
-    var sheet by remember { mutableStateOf(false) }
-    val customCards = remember { mutableStateListOf<GlanceCard.Custom>() }
+    // Opening 速览 refreshes whatever is stale (weather < 30 min is served from cache).
+    LaunchedEffect(Unit) { runCatching { repo.refreshAll(force = false, foreground = true) } }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        RootHeader(
-            title = "今日速览",
-            eyebrow = todayLabel(),
-            onAvatar = onOpenMe,
-        )
-        Row(Modifier.padding(horizontal = 24.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("从 X、记忆、邮件和网页为你整理 · ${today.updatedAt} 更新", color = HeColors.Ink2, fontSize = 13.sp, modifier = Modifier.weight(1f))
+        RootHeader(title = "今日速览", eyebrow = todayLabel(), onAvatar = onOpenMe)
+        Row(Modifier.padding(start = 24.dp, end = 16.dp, top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                if (busy) "正在刷新…" else "天气、订阅和卡片每小时自动更新" + (weather?.let { " · ${hhmm(it.fetchedAt)} 更新" } ?: ""),
+                color = HeColors.Ink2, fontSize = 13.sp, modifier = Modifier.weight(1f),
+            )
+            RoundIconButton(HeIcons.Refresh, {
+                scope.launch { runCatching { repo.refreshAll(force = true, foreground = true) }.onFailure { toast("刷新失败：${it.message}") } }
+            }, contentDescription = "刷新")
         }
+        Spacer(Modifier.height(12.dp))
+        WeatherWide(weather, Modifier.padding(horizontal = 24.dp)) { citySheet = true }
+
+        Spacer(Modifier.height(24.dp))
+        SectionHeader("订阅", Modifier.padding(horizontal = 24.dp), action = "管理来源", onAction = { sourcesSheet = true })
         Row(
-            Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 10.dp),
+            Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Source.entries.forEach { s -> SourceChip(s, s == source) { source = s } }
+            Chip("全部", filter == null) { filter = null }
+            sources.forEach { s -> Chip(s.title, filter == s.id, icon = sourceIcon(s.kind)) { filter = s.id } }
+            Chip("添加", false, icon = HeIcons.Plus) { sourcesSheet = true }
         }
-        Spacer(Modifier.height(8.dp))
-        val hl = today.highlights.filter { source == Source.ALL || it.sourceKind == source }
-        HighlightsCard(hl, Modifier.padding(horizontal = 24.dp))
-
-        if (source == Source.ALL || source == Source.X) {
-            Spacer(Modifier.height(28.dp))
-            SectionHeader("X 热帖", Modifier.padding(horizontal = 24.dp), action = "更多", onAction = { toast("X 来源需要连接器（v1）") })
-            Spacer(Modifier.height(12.dp))
-            XPostCard(today.xPost, Modifier.padding(horizontal = 24.dp))
-        }
+        val shown = items.filter { filter == null || it.sourceId == filter }.take(30)
+        FeedList(shown, hasSources = sources.isNotEmpty(), modelReady = modelReady, Modifier.padding(horizontal = 24.dp),
+            onOpen = { openInBrowser(context, it.link) }, onAdd = { sourcesSheet = true })
 
         Spacer(Modifier.height(28.dp))
-        SectionHeader("我的卡片", Modifier.padding(horizontal = 24.dp), action = "编辑", onAction = { toast("卡片编辑即将支持") })
+        SectionHeader("我的卡片", Modifier.padding(horizontal = 24.dp), action = if (cards.isEmpty()) null else if (editCards) "完成" else "编辑", onAction = { editCards = !editCards })
         Spacer(Modifier.height(12.dp))
         Column(Modifier.padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            val cards = today.cards
-            cards.filterIsInstance<GlanceCard.Flight>().firstOrNull()?.let { f ->
-                HeroEventCard(HeroEvent("", f.title, f.meta, f.time, f.route, IlloKind.FLIGHT), height = 176, showTag = false)
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                cards.filterIsInstance<GlanceCard.Train>().firstOrNull()?.let { TrainCard(it, Modifier.weight(1f)) }
-                cards.filterIsInstance<GlanceCard.Weather>().firstOrNull()?.let { WeatherCard(it, Modifier.weight(1f)) }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                cards.filterIsInstance<GlanceCard.Budget>().firstOrNull()?.let { BudgetCard(it, Modifier.weight(1f)) }
-                cards.filterIsInstance<GlanceCard.Stock>().firstOrNull()?.let { StockCard(it, Modifier.weight(1f)) }
-            }
-            customCards.forEach { CustomCard(it) }
-            cards.filterIsInstance<GlanceCard.Package>().firstOrNull()?.let { PackageStack(it) }
-            MakeCardEntry { sheet = true }
+            cards.forEach { c -> LiveCard(c, editCards) { scope.launch { repo.removeCard(c.id) } } }
+            MakeCardEntry { cardSheet = true }
         }
         Spacer(Modifier.height(24.dp))
     }
 
-    if (sheet) {
-        CustomCardSheet(
-            onDismiss = { sheet = false },
-            onAdd = { card ->
-                customCards += card
-                sheet = false
-                toast("已添加到速览")
+    if (sourcesSheet) {
+        SourcesSheet(repo, sources, onDismiss = { sourcesSheet = false }, toast = toast)
+    }
+    if (citySheet) {
+        CitySheet(
+            repo, weather,
+            onDismiss = { citySheet = false },
+            onUseLocation = {
+                citySheet = false
+                if (repo.locationGranted()) scope.launch { repo.useDeviceLocation().onFailure { toast("定位天气失败：${it.message}") } }
+                else locationLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
             },
+            toast = toast,
         )
+    }
+    if (cardSheet) {
+        CustomCardSheet(repo, onDismiss = { cardSheet = false }, onAdded = { cardSheet = false; toast("已添加到速览") })
     }
 }
 
-@Composable
-private fun SourceChip(s: Source, active: Boolean, onClick: () -> Unit) {
-    val icon = when (s) {
-        Source.MEMORY -> HeIcons.Memory
-        Source.MAIL -> HeIcons.Mail
-        Source.WEB -> HeIcons.Globe
-        else -> null
+private fun hhmm(at: Long): String = Instant.ofEpochMilli(at).atZone(ZoneId.systemDefault()).let { "%02d:%02d".format(it.hour, it.minute) }
+
+private fun ago(at: Long, now: Long = System.currentTimeMillis()): String {
+    val m = (now - at) / 60_000
+    return when {
+        m < 1 -> "刚刚"
+        m < 60 -> "$m 分钟前"
+        m < 24 * 60 -> "${m / 60} 小时前"
+        m < 7 * 24 * 60 -> "${m / (24 * 60)} 天前"
+        else -> Instant.ofEpochMilli(at).atZone(ZoneId.systemDefault()).let { "${it.monthValue}月${it.dayOfMonth}日" }
     }
+}
+
+private fun sourceIcon(kind: String) = when (kind) {
+    "WEB" -> HeIcons.Globe
+    "X" -> null
+    else -> HeIcons.List
+}
+
+@Composable
+private fun Chip(label: String, active: Boolean, icon: androidx.compose.ui.graphics.vector.ImageVector? = null, onClick: () -> Unit) {
     Row(
         Modifier
             .height(36.dp)
@@ -188,231 +212,193 @@ private fun SourceChip(s: Source, active: Boolean, onClick: () -> Unit) {
             Icon(icon, null, tint = if (active) HeColors.Accent else HeColors.Ink2, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(6.dp))
         }
-        Text(s.label, fontSize = 14.sp, fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium, color = if (active) HeColors.Accent else HeColors.Ink)
+        Text(label, fontSize = 14.sp, maxLines = 1, fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium, color = if (active) HeColors.Accent else HeColors.Ink)
     }
 }
 
 @Composable
-private fun HighlightsCard(items: List<Highlight>, modifier: Modifier = Modifier) {
-    HeroSurface(modifier.fillMaxWidth()) {
-        Column(Modifier.padding(horizontal = 20.dp, vertical = 20.dp)) {
+private fun WeatherWide(w: WeatherView?, modifier: Modifier, onClick: () -> Unit) {
+    WhiteCard(modifier.fillMaxWidth().height(156.dp), onClick = onClick) {
+        if (w == null) {
+            Column(Modifier.padding(20.dp)) {
+                Text("天气", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = HeColors.Ink)
+                Spacer(Modifier.height(6.dp))
+                Text("正在获取 Open-Meteo 天气…", fontSize = 13.sp, color = HeColors.Ink2)
+            }
+            return@WhiteCard
+        }
+        val r = w.report
+        Illo(GlanceRepository.illoFor(r.kind), IlloTone.LIGHT, Modifier.align(Alignment.TopEnd).offset(x = 4.dp, y = 12.dp).size(110.dp, 88.dp))
+        Column(Modifier.padding(20.dp).fillMaxSize()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                GlassIcon(HeIcons.Sparkle, size = 36.dp, shape = GlassShape.SCALLOP, onHero = true)
+                Text(w.place, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = HeColors.Ink)
+                Spacer(Modifier.width(8.dp))
+                HeTag(when (w.placeSource) { "gps" -> "定位"; "manual" -> "手动"; else -> "默认" }, TagKind.NEUTRAL, height = 22.dp, fontSize = 11)
+            }
+            Text(r.label, fontSize = 13.sp, color = HeColors.Ink2)
+            Spacer(Modifier.weight(1f))
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(r.tempText, style = HeNum.style(44), color = HeColors.Ink)
                 Spacer(Modifier.width(12.dp))
-                Text("今日要点", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                HeTag("${items.size} 条信息差", TagKind.GLASS, dot = false, height = 28.dp, fontSize = 13)
-            }
-            if (items.isEmpty()) {
-                Spacer(Modifier.height(16.dp))
-                Text("这个来源今天没有新的要点", color = Color.White.copy(alpha = 0.85f), fontSize = 14.sp)
-            }
-            items.forEachIndexed { i, h ->
-                Spacer(Modifier.height(12.dp))
-                HorizontalDivider(color = Color.White.copy(alpha = 0.25f))
-                Spacer(Modifier.height(12.dp))
-                Row {
-                    Box(Modifier.size(24.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.22f)), contentAlignment = Alignment.Center) {
-                        Text("${i + 1}", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column {
-                        Text(h.title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, lineHeight = 21.sp)
-                        Spacer(Modifier.height(2.dp))
-                        Text("${h.source} · ${h.time}", color = Color.White.copy(alpha = 0.78f), fontSize = 12.sp)
-                        Text("与你相关：${h.relevance}", color = Color.White.copy(alpha = 0.9f), fontSize = 12.sp)
-                    }
-                }
+                Text(r.detail(), fontSize = 12.sp, color = HeColors.Ink2, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(bottom = 8.dp))
             }
         }
     }
 }
 
 @Composable
-private fun XPostCard(p: XPost, modifier: Modifier = Modifier) {
+private fun FeedList(
+    items: List<FeedItemRow>,
+    hasSources: Boolean,
+    modelReady: Boolean,
+    modifier: Modifier,
+    onOpen: (FeedItemRow) -> Unit,
+    onAdd: () -> Unit,
+) {
     WhiteCard(modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp)) {
-            Row(Modifier.padding(start = 8.dp, end = 4.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(44.dp).clip(CircleShape).background(HeColors.Mist2), contentAlignment = Alignment.Center) {
-                    Text(p.initials, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = HeColors.Ink2)
+        if (items.isEmpty()) {
+            Column(Modifier.padding(20.dp)) {
+                Text(if (hasSources) "这些来源还没有新条目" else "还没有订阅来源", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = HeColors.Ink)
+                Spacer(Modifier.height(4.dp))
+                Text("添加 RSS / Atom 地址、任意网页，或通过 RSSHub / Nitter 订阅 X 账号。", fontSize = 13.sp, color = HeColors.Ink2, lineHeight = 19.sp)
+                if (!hasSources) {
+                    Spacer(Modifier.height(14.dp))
+                    HePillButton("添加来源", onAdd, kind = ButtonKind.TONAL, icon = HeIcons.Plus, height = 40.dp)
                 }
-                Spacer(Modifier.width(12.dp))
+            }
+            return@WhiteCard
+        }
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+            items.forEachIndexed { i, row ->
+                val it = row
+                if (i > 0) HorizontalDivider(color = HeColors.Hair)
+                Column(
+                    Modifier.fillMaxWidth().clip(HeShapes.Row).clickable(enabled = it.link.isNotBlank()) { onOpen(row) }.padding(horizontal = 4.dp, vertical = 12.dp),
+                ) {
+                    Text(it.title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = HeColors.Ink, lineHeight = 21.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Spacer(Modifier.height(3.dp))
+                    Text("${it.sourceTitle} · ${ago(it.publishedAt)}", fontSize = 12.sp, color = HeColors.Ink3, maxLines = 1)
+                    val reason = it.reason
+                    if (reason != null) {
+                        Spacer(Modifier.height(6.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(HeIcons.Sparkle, null, tint = HeColors.Accent, modifier = Modifier.size(13.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("为什么推给你：$reason", fontSize = 12.sp, color = HeColors.Ink2, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        }
+                    } else if (it.summary.isNotBlank()) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(it.summary, fontSize = 13.sp, color = HeColors.Ink2, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 19.sp)
+                    }
+                }
+            }
+            if (!modelReady) {
+                Text("配置模型后，每条都会写上「为什么推给你」。", fontSize = 12.sp, color = HeColors.Ink3, modifier = Modifier.padding(4.dp, 4.dp, 4.dp, 10.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun SheetFrame(title: String, subtitle: String, onDismiss: () -> Unit, content: @Composable () -> Unit) {
+    val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = state, containerColor = Color.White, shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).navigationBarsPadding()) {
+            Row(verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f)) {
-                    Text(p.author, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = HeColors.Ink)
-                    Text("${p.handle} · ${p.time}", fontSize = 13.sp, color = HeColors.Ink2)
+                    Text(title, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = HeColors.Ink)
+                    Spacer(Modifier.height(4.dp))
+                    Text(subtitle, fontSize = 13.sp, color = HeColors.Ink2)
                 }
-                Box(Modifier.size(28.dp).clip(CircleShape).background(HeColors.Mist2), contentAlignment = Alignment.Center) {
-                    Text("X", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = HeColors.Ink2)
-                }
+                RoundIconButton(HeIcons.Close, { scope.launch { state.hide() }.invokeOnCompletion { onDismiss() } }, contentDescription = "关闭")
             }
-            Spacer(Modifier.height(12.dp))
-            Text(p.text, fontSize = 15.sp, lineHeight = 23.sp, color = HeColors.Ink, modifier = Modifier.padding(horizontal = 8.dp))
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Metric(HeIcons.Heart, p.likes)
-                Spacer(Modifier.width(20.dp))
-                Metric(HeIcons.Repeat, p.reposts)
-                Spacer(Modifier.width(20.dp))
-                Metric(HeIcons.Chat, p.replies)
+            Spacer(Modifier.height(20.dp))
+            content()
+            Spacer(Modifier.height(20.dp))
+        }
+    }
+}
+
+@Composable
+private fun SourcesSheet(repo: GlanceRepository, sources: List<FeedSourceEntity>, onDismiss: () -> Unit, toast: (String) -> Unit) {
+    val scope = rememberCoroutineScope()
+    var input by remember { mutableStateOf("") }
+    var bridge by remember { mutableStateOf(repo.xBridge) }
+    var adding by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    SheetFrame("管理来源", "RSS / Atom、普通网页（自动找订阅源）、X 账号", onDismiss) {
+        OutlinedTextField(input, { input = it; error = null }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("粘贴网址，或 @账号") })
+        error?.let { Spacer(Modifier.height(6.dp)); Text(it, fontSize = 12.sp, color = HeColors.CoralInk) }
+        Spacer(Modifier.height(10.dp))
+        HePillButton(if (adding) "正在读取…" else "添加", {
+            if (adding) return@HePillButton
+            adding = true
+            scope.launch {
+                repo.addSource(input)
+                    .onSuccess { s -> input = ""; toast("已添加「${s.title}」"); launch { runCatching { repo.writeReasons() } } }
+                    .onFailure { error = it.message ?: "添加失败" }
+                adding = false
             }
-            Spacer(Modifier.height(12.dp))
-            Row(
-                Modifier.fillMaxWidth().clip(HeShapes.Row).background(HeColors.Mist3).padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(HeIcons.Sparkle, null, tint = HeColors.Accent, modifier = Modifier.size(14.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(p.reason, fontSize = 13.sp, color = HeColors.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
+        }, Modifier.fillMaxWidth(), ButtonKind.PRIMARY, HeIcons.Plus, enabled = input.isNotBlank() && !adding)
+
+        Spacer(Modifier.height(24.dp))
+        Text("X 桥接", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = HeColors.Ink2)
+        Spacer(Modifier.height(6.dp))
+        Text("X 没有公开订阅源。填你自己的 RSSHub（/twitter/user/<账号>）或 Nitter（/<账号>/rss）实例地址。", fontSize = 12.sp, color = HeColors.Ink3, lineHeight = 18.sp)
+        Spacer(Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(bridge, { bridge = it }, singleLine = true, modifier = Modifier.weight(1f), placeholder = { Text("https://rsshub.example.com") })
+            Spacer(Modifier.width(8.dp))
+            HePillButton("保存", { repo.xBridge = bridge; toast(if (bridge.isBlank()) "已清除 X 桥接" else "已保存") }, kind = ButtonKind.TONAL, height = 48.dp)
         }
-    }
-}
 
-@Composable
-private fun Metric(icon: androidx.compose.ui.graphics.vector.ImageVector, value: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = HeColors.Ink2, modifier = Modifier.size(16.dp))
-        Spacer(Modifier.width(6.dp))
-        Text(value, fontSize = 14.sp, color = HeColors.Ink2, style = HeNum.style(14, FontWeight.Normal))
-    }
-}
-
-private val BENTO_H = 176.dp
-
-@Composable
-private fun TrainCard(c: GlanceCard.Train, modifier: Modifier) {
-    WhiteCard(modifier.height(BENTO_H)) {
-        Illo(IlloKind.TRAIN, IlloTone.LIGHT, Modifier.align(Alignment.TopEnd).offset(x = 6.dp, y = 14.dp).size(80.dp, 64.dp))
-        Column(Modifier.padding(20.dp).fillMaxSize()) {
-            Text(c.title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = HeColors.Ink)
-            Text(c.meta, fontSize = 13.sp, color = HeColors.Ink2)
-            Spacer(Modifier.weight(1f))
-            Text(c.time, style = HeNum.style(36), color = HeColors.Ink)
-            Spacer(Modifier.height(4.dp))
-            Text(c.detail, fontSize = 12.sp, color = HeColors.Ink2, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-    }
-}
-
-@Composable
-private fun WeatherCard(c: GlanceCard.Weather, modifier: Modifier) {
-    WhiteCard(modifier.height(BENTO_H)) {
-        Illo(c.kind, IlloTone.LIGHT, Modifier.align(Alignment.TopEnd).offset(x = 4.dp, y = 10.dp).size(80.dp, 64.dp))
-        Column(Modifier.padding(20.dp).fillMaxSize()) {
-            Text("天气", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = HeColors.Ink)
-            Text(c.city, fontSize = 13.sp, color = HeColors.Ink2)
-            Spacer(Modifier.weight(1f))
-            Text(c.temp, style = HeNum.style(40), color = HeColors.Ink)
-            Spacer(Modifier.height(4.dp))
-            Text(c.detail, fontSize = 12.sp, color = HeColors.Ink2, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-    }
-}
-
-@Composable
-private fun BudgetCard(c: GlanceCard.Budget, modifier: Modifier) {
-    WhiteCard(modifier.height(BENTO_H)) {
-        GlassIcon(HeIcons.Receipt, Modifier.align(Alignment.TopEnd).padding(16.dp), size = 44.dp, shape = GlassShape.SQUARE)
-        Column(Modifier.padding(20.dp).fillMaxSize()) {
-            Text("本月预算", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = HeColors.Ink)
-            Text("剩余", fontSize = 13.sp, color = HeColors.Ink2)
-            Spacer(Modifier.weight(1f))
-            Text(c.remaining, style = HeNum.style(32), color = HeColors.Ink)
-            Spacer(Modifier.height(8.dp))
-            Box(Modifier.fillMaxWidth().height(6.dp).clip(HeShapes.Pill).background(HeColors.Mist)) {
-                Box(Modifier.fillMaxWidth(c.usedFraction).height(6.dp).clip(HeShapes.Pill).background(HeColors.Accent))
-            }
-            Spacer(Modifier.height(6.dp))
-            Text(c.detail, fontSize = 12.sp, color = HeColors.Ink2, maxLines = 1)
-        }
-    }
-}
-
-@Composable
-private fun AiBadge(modifier: Modifier = Modifier) {
-    Row(
-        modifier.height(22.dp).clip(HeShapes.Pill).background(HeColors.AccentTint).padding(horizontal = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(HeIcons.Sparkle, null, tint = HeColors.Accent, modifier = Modifier.size(12.dp))
-        Spacer(Modifier.width(4.dp))
-        Text("AI 生成 · 可编辑", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = HeColors.Accent)
-    }
-}
-
-@Composable
-private fun StockCard(c: GlanceCard.Stock, modifier: Modifier) {
-    WhiteCard(modifier.height(BENTO_H)) {
-        Column(Modifier.padding(16.dp).fillMaxSize()) {
-            AiBadge()
-            Spacer(Modifier.height(8.dp))
-            Text(c.title, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = HeColors.Ink, maxLines = 1)
-            Text(c.price, style = HeNum.style(28), color = HeColors.Ink)
-            Sparkline(c.points, Modifier.fillMaxWidth().weight(1f).padding(vertical = 4.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                HeTag(c.change, if (c.up) TagKind.MINT else TagKind.NEUTRAL, height = 22.dp, fontSize = 11)
-                Spacer(Modifier.width(8.dp))
-                Text(c.refresh, fontSize = 11.sp, color = HeColors.Ink3, maxLines = 1)
-            }
-        }
-    }
-}
-
-@Composable
-private fun Sparkline(points: List<Float>, modifier: Modifier) {
-    Canvas(modifier) {
-        if (points.size < 2) return@Canvas
-        val w = size.width
-        val h = size.height
-        val p = Path()
-        points.forEachIndexed { i, v ->
-            val x = w * i / (points.size - 1)
-            val y = h * (1 - v)
-            if (i == 0) p.moveTo(x, y) else p.lineTo(x, y)
-        }
-        drawPath(p, HeColors.Accent, style = Stroke(2.5.dp.toPx(), cap = StrokeCap.Round))
-        val lx = w
-        val ly = h * (1 - points.last())
-        drawCircle(Color.White, 5.dp.toPx(), Offset(lx - 2.dp.toPx(), ly))
-        drawCircle(HeColors.Accent, 5.dp.toPx(), Offset(lx - 2.dp.toPx(), ly), style = Stroke(2.dp.toPx()))
-    }
-}
-
-@Composable
-private fun PackageStack(c: GlanceCard.Package) {
-    Box(Modifier.fillMaxWidth().padding(top = 16.dp)) {
-        Box(
-            Modifier.padding(horizontal = 24.dp).offset(y = (-14).dp).fillMaxWidth().height(40.dp)
-                .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)).background(HeColors.Mist2)
-                .border(1.dp, HeColors.Hair, RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)),
-        )
-        Box(
-            Modifier.padding(horizontal = 12.dp).offset(y = (-7).dp).fillMaxWidth().height(40.dp)
-                .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)).background(HeColors.Mist3)
-                .border(1.dp, HeColors.Hair, RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)),
-        )
-        WhiteCard(Modifier.fillMaxWidth().height(96.dp)) {
-            Box(Modifier.align(Alignment.TopCenter).padding(top = 8.dp).size(36.dp, 4.dp).clip(HeShapes.Pill).background(HeColors.Hair))
-            Row(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Illo(IlloKind.PACKAGE, IlloTone.LIGHT, Modifier.size(70.dp, 56.dp))
-                Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.height(24.dp))
+        Text("已添加 · ${sources.size}", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = HeColors.Ink2)
+        sources.forEach { s ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(c.title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = HeColors.Ink)
-                    Text(c.meta, fontSize = 13.sp, color = HeColors.Ink2)
+                    Text(s.title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = HeColors.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        s.lastError?.let { "上次刷新失败：$it" } ?: "${when (s.kind) { "WEB" -> "网页"; "X" -> "X"; else -> "RSS" }} · ${s.url}",
+                        fontSize = 12.sp, color = if (s.lastError != null) HeColors.CoralInk else HeColors.Ink3, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
                 }
-                Icon(HeIcons.ChevronRight, null, tint = HeColors.Ink3, modifier = Modifier.size(18.dp))
+                RoundIconButton(HeIcons.Close, { scope.launch { repo.removeSource(s.id) } }, contentDescription = "移除")
             }
+            HorizontalDivider(color = HeColors.Hair)
         }
+    }
+}
+
+@Composable
+private fun CitySheet(repo: GlanceRepository, w: WeatherView?, onDismiss: () -> Unit, onUseLocation: () -> Unit, toast: (String) -> Unit) {
+    val scope = rememberCoroutineScope()
+    var city by remember { mutableStateOf(repo.manualPlace?.name.orEmpty()) }
+    var working by remember { mutableStateOf(false) }
+    SheetFrame("天气城市", "当前：${w?.place ?: "南京"} · 数据来自 Open-Meteo", onDismiss) {
+        HePillButton("使用手机定位", onUseLocation, Modifier.fillMaxWidth(), ButtonKind.TONAL, HeIcons.Pin)
+        Spacer(Modifier.height(16.dp))
+        OutlinedTextField(city, { city = it }, singleLine = true, modifier = Modifier.fillMaxWidth(), placeholder = { Text("或输入城市，例如 南京") })
+        Spacer(Modifier.height(10.dp))
+        HePillButton(if (working) "正在查找…" else "使用这个城市", {
+            working = true
+            scope.launch {
+                repo.setManualCity(city).onSuccess { toast("天气已切换到 ${it.display}"); onDismiss() }.onFailure { toast(it.message ?: "找不到这个城市") }
+                working = false
+            }
+        }, Modifier.fillMaxWidth(), enabled = city.isNotBlank() && !working)
     }
 }
 
 @Composable
 private fun MakeCardEntry(onClick: () -> Unit) {
-    val shape = HeShapes.Card
     Row(
         Modifier
             .fillMaxWidth()
             .height(88.dp)
-            .clip(shape)
+            .clip(HeShapes.Card)
             .drawBehind {
                 drawRoundRect(
                     color = HeColors.Outline,
@@ -430,126 +416,167 @@ private fun MakeCardEntry(onClick: () -> Unit) {
         Spacer(Modifier.width(16.dp))
         Column {
             Text("让 Helium 做一张卡", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = HeColors.Ink)
-            Text("说一句话，生成一张属于你的卡", fontSize = 13.sp, color = HeColors.Ink2)
+            Text("说一句话，比如「做一张盯 BTC 价格的卡」", fontSize = 13.sp, color = HeColors.Ink2)
         }
     }
 }
 
 @Composable
-private fun CustomCard(c: GlanceCard.Custom) {
+private fun AiBadge() {
+    Row(
+        Modifier.height(22.dp).clip(HeShapes.Pill).background(HeColors.AccentTint).padding(horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(HeIcons.Sparkle, null, tint = HeColors.Accent, modifier = Modifier.size(12.dp))
+        Spacer(Modifier.width(4.dp))
+        Text("AI 生成", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = HeColors.Accent)
+    }
+}
+
+private fun intervalLabel(min: Int) = when {
+    min >= 24 * 60 -> "每天"
+    min % 60 == 0 -> if (min == 60) "每小时" else "每 ${min / 60} 小时"
+    else -> "每 $min 分钟"
+}
+
+@Composable
+private fun LiveCard(c: CardView, editing: Boolean, onRemove: () -> Unit) {
     WhiteCard(Modifier.fillMaxWidth()) {
-        CustomCardBody(c)
+        CardBody(
+            title = c.title,
+            meta = c.error?.let { "刷新失败：$it" }
+                ?: ("${intervalLabel(c.intervalMinutes)}刷新 · " + (c.lastRefreshAt?.let { "${hhmm(it)} 更新" } ?: "等待首次刷新") + (if (c.host.isNotBlank()) " · ${c.host}" else "")),
+            lines = c.lines,
+            size = c.size,
+            history = c.history,
+            trailing = { if (editing) RoundIconButton(HeIcons.Close, onRemove, contentDescription = "删除") else AiBadge() },
+        )
     }
 }
 
 @Composable
-private fun CustomCardBody(c: GlanceCard.Custom) {
+private fun CardBody(title: String, meta: String, lines: List<CardLine>, size: String, history: List<Double>, trailing: @Composable () -> Unit) {
     Column(Modifier.padding(20.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            GlassIcon(HeIcons.Glance, size = 40.dp, shape = GlassShape.SQUARE)
+            GlassIcon(HeIcons.Chart, size = 40.dp, shape = GlassShape.SQUARE)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(c.title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = HeColors.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(c.meta, fontSize = 12.sp, color = HeColors.Ink2)
+                Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = HeColors.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(meta, fontSize = 12.sp, color = HeColors.Ink2, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            AiBadge()
+            trailing()
         }
-        val shown = when (c.size) {
-            CardSize.SMALL -> c.lines.take(1)
-            CardSize.WIDE -> c.lines.take(3)
-            CardSize.LARGE -> c.lines
+        val first = lines.firstOrNull()
+        if (first != null && first.raw != null && first.value.isNotBlank()) {
+            Spacer(Modifier.height(12.dp))
+            Text(first.value, style = HeNum.style(32), color = HeColors.Ink)
+            if (history.size >= 2) Sparkline(history, Modifier.fillMaxWidth().height(36.dp).padding(vertical = 4.dp))
         }
-        shown.forEachIndexed { i, (t, v) ->
-            if (i > 0) HorizontalDivider(color = HeColors.Hair)
+        val rest = if (first?.raw != null) lines.drop(1) else lines
+        val shown = when (size) {
+            "SMALL" -> rest.take(1)
+            "LARGE" -> rest
+            else -> rest.take(3)
+        }
+        shown.forEachIndexed { i, l ->
+            if (i > 0 || first?.raw != null) HorizontalDivider(color = HeColors.Hair)
             Row(Modifier.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("${i + 1}", color = HeColors.Accent, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(24.dp))
-                Text(t, fontSize = 15.sp, color = HeColors.Ink, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Icon(HeIcons.Heart, null, tint = HeColors.Ink3, modifier = Modifier.size(14.dp))
-                Spacer(Modifier.width(4.dp))
-                Text(v, fontSize = 13.sp, color = HeColors.Ink2)
+                Text(l.label, fontSize = 14.sp, color = HeColors.Ink, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (l.value.isNotBlank()) {
+                    val tint = when {
+                        l.value.startsWith("+") -> HeColors.MintInk
+                        l.value.startsWith("-") -> HeColors.CoralInk
+                        else -> HeColors.Ink2
+                    }
+                    Text(l.value, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = tint)
+                }
             }
+        }
+        if (lines.isEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            Text("还没有数据", fontSize = 13.sp, color = HeColors.Ink3)
         }
     }
 }
 
-/** Local stand-in for the card generator: turns the prompt into a sample card preview. */
-private fun previewFor(prompt: String, size: CardSize, refresh: String, variant: Int): GlanceCard.Custom {
-    val topic = prompt.substringAfter("关于", prompt).substringBefore("的").trim().ifBlank { "AI agent" }.take(16)
-    val pools = listOf(
-        listOf("手机 Agent 的审批该放在哪一步？" to "2.4k", "开源浏览器代理新版：多标签并行" to "1.8k", "把定时任务交给 Agent 的 5 个坑" to "960", "长上下文降价后，记忆该怎么存？" to "720"),
-        listOf("一张图看懂 Agent 的权限作用域" to "3.1k", "让 Agent 帮你比价：踩过的坑" to "1.2k", "语音优先的个人助理会回来吗" to "880", "MCP 服务器安全清单" to "640"),
-    )
-    return GlanceCard.Custom(
-        id = "custom-" + System.nanoTime(),
-        title = "X · $topic 热帖",
-        meta = "$refresh 更新 · 预览",
-        lines = pools[variant % pools.size],
-        size = size,
-    )
+@Composable
+private fun Sparkline(values: List<Double>, modifier: Modifier) {
+    Canvas(modifier) {
+        val lo = values.min()
+        val hi = values.max()
+        val span = (hi - lo).takeIf { it > 0 } ?: 1.0
+        val p = Path()
+        values.forEachIndexed { i, v ->
+            val x = size.width * i / (values.size - 1)
+            val y = size.height * (1 - ((v - lo) / span).toFloat())
+            if (i == 0) p.moveTo(x, y) else p.lineTo(x, y)
+        }
+        drawPath(p, HeColors.Accent, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
+        drawCircle(HeColors.Accent, 3.dp.toPx(), Offset(size.width, size.height * (1 - ((values.last() - lo) / span).toFloat())))
+    }
 }
 
-/** 08 「让 Helium 做一张卡」 bottom sheet: prompt → preview → size → refresh → add. */
+/** 08 「让 Helium 做一张卡」: sentence → definition (template or model) → live preview → size + interval → add. */
 @Composable
-private fun CustomCardSheet(onDismiss: () -> Unit, onAdd: (GlanceCard.Custom) -> Unit) {
-    val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+private fun CustomCardSheet(repo: GlanceRepository, onDismiss: () -> Unit, onAdded: () -> Unit) {
     val scope = rememberCoroutineScope()
-    var prompt by remember { mutableStateOf("每天早上给我看 X 上关于 AI agent 的 3 条热帖") }
+    var prompt by remember { mutableStateOf("做一张盯 BTC 价格的卡") }
+    var def by remember { mutableStateOf<CardDefinition?>(null) }
+    var lines by remember { mutableStateOf<List<CardLine>?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var working by remember { mutableStateOf(false) }
     var size by remember { mutableStateOf(CardSize.WIDE) }
-    var refresh by remember { mutableStateOf("每天 08:00") }
-    var variant by remember { mutableStateOf(0) }
-    val preview = remember(prompt, size, refresh, variant) { previewFor(prompt, size, refresh, variant) }
+    var minutes by remember { mutableStateOf(60) }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = state,
-        containerColor = Color.White,
-        shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-    ) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp)
-                .navigationBarsPadding(),
+    fun generate() {
+        working = true
+        error = null
+        scope.launch {
+            repo.generateCard(prompt).onSuccess { d ->
+                def = d
+                minutes = d.intervalMinutes
+                size = runCatching { CardSize.valueOf(d.size) }.getOrDefault(CardSize.WIDE)
+                lines = repo.preview(d).onFailure { error = "预览失败：${it.message}" }.getOrNull()
+            }.onFailure { def = null; lines = null; error = it.message }
+            working = false
+        }
+    }
+
+    SheetFrame("让 Helium 做一张卡", "一句话描述，Helium 找数据源、写抽取规则并按时刷新", onDismiss) {
+        Box(
+            Modifier.fillMaxWidth().clip(HeShapes.Card).background(HeColors.Mist3).border(BorderStroke(2.dp, HeColors.Accent), HeShapes.Card).padding(20.dp),
         ) {
-            Row(verticalAlignment = Alignment.Top) {
-                Column(Modifier.weight(1f)) {
-                    Text("让 Helium 做一张卡", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = HeColors.Ink)
-                    Spacer(Modifier.height(4.dp))
-                    Text("用一句话描述，Helium 生成并按时刷新", fontSize = 13.sp, color = HeColors.Ink2)
-                }
-                RoundIconButton(HeIcons.Close, { scope.launch { state.hide() }.invokeOnCompletion { onDismiss() } }, contentDescription = "关闭")
-            }
-            Spacer(Modifier.height(20.dp))
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(HeShapes.Card)
-                    .background(HeColors.Mist3)
-                    .border(BorderStroke(2.dp, HeColors.Accent), HeShapes.Card)
-                    .padding(20.dp),
-            ) {
-                Column {
-                    BasicTextField(
-                        value = prompt,
-                        onValueChange = { prompt = it },
-                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 16.sp, lineHeight = 24.sp, color = HeColors.Ink),
-                        cursorBrush = SolidColor(HeColors.Accent),
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 2,
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        HePillButton("重新生成", { variant++ }, kind = ButtonKind.WHITE, icon = HeIcons.Refresh, height = 40.dp)
-                    }
+            Column {
+                BasicTextField(
+                    value = prompt,
+                    onValueChange = { prompt = it },
+                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 16.sp, lineHeight = 24.sp, color = HeColors.Ink),
+                    cursorBrush = SolidColor(HeColors.Accent),
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2,
+                )
+                Spacer(Modifier.height(12.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    HePillButton(if (working) "生成中…" else if (def == null) "生成" else "重新生成", { if (!working) generate() },
+                        kind = ButtonKind.WHITE, icon = HeIcons.Sparkle, height = 40.dp, enabled = prompt.isNotBlank() && !working)
                 }
             }
+        }
+        error?.let { Spacer(Modifier.height(10.dp)); Text(it, fontSize = 13.sp, color = HeColors.CoralInk, lineHeight = 19.sp) }
+        val d = def
+        if (d != null) {
             Spacer(Modifier.height(20.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("预览", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = HeColors.Ink2)
+            Text("预览", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = HeColors.Ink2)
+            Spacer(Modifier.height(10.dp))
+            WhiteCard(Modifier.fillMaxWidth(), shadow = false) {
+                CardBody(d.title, "${intervalLabel(minutes)}刷新 · 实时数据", lines.orEmpty(), size.name, emptyList()) { AiBadge() }
             }
             Spacer(Modifier.height(10.dp))
-            WhiteCard(Modifier.fillMaxWidth(), shadow = false) { CustomCardBody(preview) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(HeIcons.Link, null, tint = HeColors.Ink3, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("来源：${d.url.substringAfter("://").substringBefore("?")} · ${d.fields.size} 个字段", fontSize = 12.sp, color = HeColors.Ink2, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
             Spacer(Modifier.height(20.dp))
             Text("尺寸", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = HeColors.Ink2)
             Spacer(Modifier.height(10.dp))
@@ -560,31 +587,15 @@ private fun CustomCardSheet(onDismiss: () -> Unit, onAdd: (GlanceCard.Custom) ->
             Text("刷新频率", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = HeColors.Ink2)
             Spacer(Modifier.height(10.dp))
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("每天 08:00", "每 4 小时", "每小时", "仅手动").forEach { r ->
-                    val active = r == refresh
-                    Box(
-                        Modifier
-                            .height(40.dp)
-                            .clip(HeShapes.Pill)
-                            .background(if (active) HeColors.AccentTint else Color.White)
-                            .then(if (active) Modifier else Modifier.border(1.dp, HeColors.Hair, HeShapes.Pill))
-                            .clickable { refresh = r }
-                            .padding(horizontal = 16.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(r, fontSize = 14.sp, fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium, color = if (active) HeColors.Accent else HeColors.Ink)
-                    }
-                }
-            }
-            Spacer(Modifier.height(16.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(HeIcons.Search, null, tint = HeColors.Ink3, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("来源：X 搜索 · 按互动量排序 · 添加后可随时编辑", fontSize = 13.sp, color = HeColors.Ink2)
+                listOf(60, 240, 24 * 60).forEach { m -> Chip(intervalLabel(m), m == minutes) { minutes = m } }
             }
             Spacer(Modifier.height(20.dp))
-            HePillButton("添加到速览", { onAdd(preview) }, Modifier.fillMaxWidth(), ButtonKind.PRIMARY, HeIcons.Plus)
-            Spacer(Modifier.height(16.dp))
+            HePillButton("添加到速览", {
+                scope.launch {
+                    repo.addCard(prompt, d.copy(intervalMinutes = minutes.coerceAtLeast(CardDefinition.MIN_INTERVAL), size = size.name), lines)
+                    onAdded()
+                }
+            }, Modifier.fillMaxWidth(), ButtonKind.PRIMARY, HeIcons.Plus)
         }
     }
 }

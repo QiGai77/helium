@@ -55,6 +55,7 @@ import tech.qigai.helium.ui.screens.ChatScreen
 import tech.qigai.helium.ui.screens.ChatViewModel
 import tech.qigai.helium.ui.screens.GlanceScreen
 import tech.qigai.helium.ui.screens.HomeScreen
+import tech.qigai.helium.ui.screens.rememberHomeHero
 import tech.qigai.helium.ui.screens.MeScreen
 import tech.qigai.helium.ui.screens.MemorySkillsScreen
 import tech.qigai.helium.ui.screens.ModelsScreen
@@ -145,6 +146,7 @@ fun HeliumNavHost(nav: NavHostController = rememberNavController()) {
                         onOpenApproval = { open(Routes.APPROVAL) },
                         onOpenMe = { open(Routes.ME) },
                         toast = toast,
+                        hero = rememberHomeHero(),
                     )
                 }
                 composable(Routes.CHAT) {
@@ -158,7 +160,7 @@ fun HeliumNavHost(nav: NavHostController = rememberNavController()) {
                         toast = toast,
                     )
                 }
-                composable(Routes.GLANCE) { GlanceScreen(today = null, onOpenMe = { open(Routes.ME) }, toast = toast) }
+                composable(Routes.GLANCE) { GlanceScreen(onOpenMe = { open(Routes.ME) }, toast = toast) }
                 composable(Routes.TASKS) {
                     TasksScreen(
                         tasks = taskRows.map { t ->
