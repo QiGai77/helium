@@ -40,6 +40,8 @@ import tech.qigai.helium.tasks.TaskListTool
 import tech.qigai.helium.tasks.TaskScheduler
 import tech.qigai.helium.tasks.TaskUpdateTool
 import kotlinx.coroutines.flow.MutableStateFlow
+import tech.qigai.helium.glance.GlanceRefreshWorker
+import tech.qigai.helium.glance.GlanceRepository
 
 /** Composition root: one instance of every repository, the tool registry and the sentinel. */
 class HeliumApplication : Application() {
@@ -55,6 +57,7 @@ class HeliumApplication : Application() {
     val audit by lazy { AuditRepository(db) }
     val approvals by lazy { ApprovalBroker(db) }
     val tasks by lazy { TaskRepository(db) }
+    val glance by lazy { GlanceRepository(this, db, LlmClient.defaultHttp, LlmClient.USER_AGENT, settings, memories) }
 
     // M5: scheduled tasks, reminders, notifications, runtime permissions.
     val notifications by lazy { HeliumNotifications(this) }
@@ -116,5 +119,7 @@ class HeliumApplication : Application() {
             notifications.ensureChannels()
             runCatching { taskEngine.rearmAll() }
         }
+        // 速览: hourly weather / feeds / custom cards refresh.
+        runCatching { GlanceRefreshWorker.schedule(this) }
     }
 }

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>少数派 &amp; 朋友</title>
+    <link>https://sspai.example/</link>
+    <atom:link href="https://sspai.example/feed" rel="self" type="application/rss+xml"/>
+    <description>效率工具</description>
+    <item>
+      <title><![CDATA[Android 15 的 <b>隐私</b> 新功能]]></title>
+      <link>https://sspai.example/post/1</link>
+      <guid isPermaLink="false">post-1</guid>
+      <pubDate>Thu, 19 Nov 2026 08:30:00 +0800</pubDate>
+      <description><![CDATA[<p>系统级的&nbsp;<a href="/x">权限</a>面板。</p><script>alert(1)</script>]]></description>
+    </item>
+    <item>
+      <title>RSS 还活着</title>
+      <link>/post/2</link>
+      <pubDate>Wed, 18 Nov 2026 22:00:00 GMT</pubDate>
+      <content:encoded>&lt;p&gt;订阅才是&amp;quot;信息差&amp;quot;。&lt;/p&gt;</content:encoded>
+    </item>
+    <item>
+      <title>没有日期也没有 guid</title>
+      <link>https://sspai.example/post/3</link>
+      <dc:date>2026-11-17T09:00:00Z</dc:date>
+    </item>
+    <item>
+      <title>来自未来</title>
+      <guid>https://sspai.example/post/4</guid>
+      <pubDate>Fri, 01 Jan 2100 00:00:00 EST</pubDate>
+    </item>
+  </channel>
+</rss>

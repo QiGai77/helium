@@ -15,6 +15,14 @@
         <intent>
             <action android:name="android.media.action.IMAGE_CAPTURE" />
         </intent>
+        <intent>
+            <action android:name="android.support.customtabs.action.CustomTabsService" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
     </queries>
     <!-- M2/M5: device calendar (read only), notifications, exact reminders, re-arm after reboot -->
     <uses-permission android:name="android.permission.READ_CALENDAR" />
@@ -23,6 +31,9 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- Custom Tabs: let the app see browsers that can open feed articles (Android 11+ package visibility). -->
 
     <application
         android:name=".HeliumApplication"

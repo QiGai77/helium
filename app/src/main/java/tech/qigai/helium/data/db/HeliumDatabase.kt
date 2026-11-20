@@ -13,8 +13,9 @@ import tech.qigai.helium.chat.SearchText
         ConversationEntity::class, EventEntity::class, MemoryEntity::class, ForgetRuleEntity::class,
         GrantEntity::class, AuditEntity::class, ApprovalEntity::class, ScheduledTaskEntity::class,
         EventFts::class, PendingReplyEntity::class, TaskRunEntity::class,
+        FeedSourceEntity::class, FeedItemEntity::class, GlanceCardEntity::class, WeatherCacheEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class HeliumDatabase : RoomDatabase() {
@@ -56,7 +57,14 @@ abstract class HeliumDatabase : RoomDatabase() {
             }
         }
 
-        val MIGRATIONS = arrayOf<Migration>(MIGRATION_1_2, MIGRATION_2_3)
+        /** M6: 速览 tables. */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                GLANCE_V4_SQL.forEach { db.execSQL(it) }
+            }
+        }
+
+        val MIGRATIONS = arrayOf<Migration>(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
 
         /** Fills `events.searchText` for messages written before v2; the AFTER UPDATE trigger indexes them. */
         private fun backfillSearchText(db: SupportSQLiteDatabase) {

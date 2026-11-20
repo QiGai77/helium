@@ -53,6 +53,8 @@ fun HomeScreen(
     onOpenApproval: () -> Unit,
     onOpenMe: () -> Unit,
     toast: (String) -> Unit,
+    /** Nearest real calendar event, else today's weather (M6); null keeps the empty hero. */
+    hero: HeroEvent? = null,
 ) {
     Column(Modifier.fillMaxSize()) {
         Column(
@@ -71,7 +73,11 @@ fun HomeScreen(
                 onAvatar = onOpenMe,
             )
             Spacer(Modifier.height(24.dp))
-            EmptyHeroCard(Modifier.padding(horizontal = 24.dp), onClick = onOpenGlance)
+            if (hero != null) {
+                HeroEventCard(hero, Modifier.padding(horizontal = 24.dp), onClick = onOpenGlance)
+            } else {
+                EmptyHeroCard(Modifier.padding(horizontal = 24.dp), onClick = onOpenGlance)
+            }
             Spacer(Modifier.height(24.dp))
             if (pending.isNotEmpty()) {
                 HintRow(HeColors.Amber, "${pending.size} 件待你确认", pending.first().title, onOpenApproval, Modifier.padding(horizontal = 24.dp))
