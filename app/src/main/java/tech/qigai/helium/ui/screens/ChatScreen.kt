@@ -30,6 +30,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -91,6 +92,7 @@ fun ChatScreen(
 ) {
     val running by vm.running
     val candidates by vm.candidates.collectAsState()
+    val extractionNotice = vm.extractionNotice.value
     val listState = rememberLazyListState()
     var menu by remember { mutableStateOf(false) }
     var modelMenu by remember { mutableStateOf(false) }
@@ -209,6 +211,19 @@ fun ChatScreen(
                     MemoryCandidateCard(candidates, vm::acceptCandidate, vm::dismissCandidate, vm::neverCandidate)
                 }
             }
+            if (extractionNotice != null && !running) {
+                item(key = "extraction-notice") {
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(HeColors.Mist2)
+                            .padding(start = 14.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(extractionNotice, fontSize = 13.sp, lineHeight = 18.sp, color = HeColors.Ink2, modifier = Modifier.weight(1f))
+                        Spacer(Modifier.width(8.dp))
+                        TextButton(onClick = { vm.extractionNotice.value = null }) { Text("知道了", color = HeColors.Ink2, fontSize = 13.sp) }
+                    }
+                }
+            }
             if (running && (streamingText.isNotEmpty() || streamingReasoning.isNotEmpty() || items.lastOrNull() !is ChatItem.Approval)) {
                 item(key = "streaming") {
                     AssistantMessage(
@@ -219,6 +234,13 @@ fun ChatScreen(
             }
         }
 
+        if (vm.queuedCount.value > 0) {
+            Text(
+                "已排队 ${vm.queuedCount.value} 条消息，当前步骤完成后继续，不会打断正在执行的步骤",
+                fontSize = 12.sp, color = HeColors.Ink2,
+                modifier = Modifier.padding(start = 24.dp, bottom = 6.dp),
+            )
+        }
         ChatInputBar(
             vm = vm,
             onSend = { vm.send() },

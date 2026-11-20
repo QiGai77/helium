@@ -22,10 +22,25 @@ import tech.qigai.helium.skills.SkillMarkdown
 /**
  * 关于你: the local memory library. Memories are only written when the user confirms a candidate (or types one);
  * forgetting deletes the row (and its FTS entry, via Room's triggers) and records a "不再保存" rule that blocks the
- * same fact from being proposed or saved again.
+ * same fact from being proposed or saved again. Every write path that takes user-typed text — manual add, edit,
+ * and the [MemoryStore.add] entry point — checks those rules first, exactly like [proposeAll] does, so a
+ * forgotten fact cannot be typed back in by hand. (Accepting a candidate is the one exception: it was already
+ * rule-checked when proposed, and forgetting dismisses matching pending candidates.)
  */
-class RoomMemoryStore(private val db: HeliumDatabase, private val clock: () -> Long = System::currentTimeMillis) : MemoryStore {
-    private val dao get() = db.memories()
+class RoomMemoryStore private constructor(
+    private val dao: MemoryDao,
+    private val db: HeliumDatabase?,
+    private val clock: () -> Long = System::currentTimeMillis,
+) : MemoryStore {
+    constructor(db: HeliumDatabase, clock: () -> Long = System::currentTimeMillis) : this(db.memories(), db, clock)
+
+    /** Test seam: runs without a transaction when there is no database (unit tests drive a fake DAO). */
+    constructor(dao: MemoryDao, clock: () -> Long = System::currentTimeMillis) : this(dao, null, clock)
+
+    private suspend fun <T> tx(block: suspend () -> T): T {
+        val database = db
+        return if (database != null) database.withTransaction(block) else block()
+    }
 
     fun observeAll(): Flow<List<MemoryEntity>> = dao.observeAll()
     fun observeRules(): Flow<List<ForgetRuleEntity>> = dao.observeRules()
@@ -54,9 +69,19 @@ class RoomMemoryStore(private val db: HeliumDatabase, private val clock: () -> L
         return MemoryRanker.rank(query, pool.distinctBy { it.id }.map { it.toRecord() }, limit)
     }
 
-    override suspend fun add(text: String, domain: String, inferred: Boolean): Long = insert(text, domain, inferred, "chat")
+    /**
+     * Manual add from the 记忆 page (and the [MemoryStore.add] entry point). Returns -1 when a "不再保存" rule
+     * matches the text: nothing is written, so a forgotten fact cannot be typed back in by hand.
+     */
+    override suspend fun add(text: String, domain: String, inferred: Boolean): Long {
+        if (blocked(text)) return -1L
+        return insert(text, domain, inferred, "chat")
+    }
 
-    suspend fun addManual(text: String, domain: String): Long = insert(text, domain, false, "manual")
+    suspend fun addManual(text: String, domain: String): Long {
+        if (blocked(text)) return -1L
+        return insert(text, domain, false, "manual")
+    }
 
     private suspend fun insert(text: String, domain: String, inferred: Boolean, source: String): Long {
         val t = text.trim()
@@ -64,16 +89,19 @@ class RoomMemoryStore(private val db: HeliumDatabase, private val clock: () -> L
         return dao.insert(MemoryEntity(0, t, MemoryDomains.normalize(domain) ?: MemoryDomains.guess(t), inferred, source, now, now, SearchText.normalize(t)))
     }
 
-    suspend fun update(id: Long, text: String, domain: String, inferred: Boolean) {
-        val m = dao.get(id) ?: return
-        val t = text.trim().ifEmpty { return }
+    /** Editing a memory to a text a "不再保存" rule matches is a no-op (returns false, nothing is written). */
+    suspend fun update(id: Long, text: String, domain: String, inferred: Boolean): Boolean {
+        val m = dao.get(id) ?: return false
+        val t = text.trim().ifEmpty { return false }
+        if (blocked(t)) return false
         dao.update(m.copy(text = t, domain = MemoryDomains.normalize(domain) ?: m.domain, inferred = inferred, updatedAt = clock(), searchText = SearchText.normalize(t)))
+        return true
     }
 
     /** Forgetting deletes the memory and records a "不再保存" rule for it; matching pending candidates go too. */
     override suspend fun forget(id: Long): MemoryRecord? {
         val m = dao.get(id) ?: return null
-        db.withTransaction {
+        tx {
             dao.delete(id)
             addRule(m.text)
             dao.pendingCandidates().filter { ForgetRules.matches(m.text, it.text) }.forEach { dao.setCandidateStatus(it.id, CandidateStatus.DISMISSED) }
@@ -114,7 +142,7 @@ class RoomMemoryStore(private val db: HeliumDatabase, private val clock: () -> L
         val c = dao.candidate(candidateId) ?: return null
         if (c.status != CandidateStatus.PENDING) return null
         val t = text?.trim()?.ifEmpty { null } ?: c.text
-        val id = db.withTransaction {
+        val id = tx {
             dao.setCandidateStatus(c.id, CandidateStatus.ACCEPTED)
             insert(t, domain ?: c.domain, c.inferred && text == null, "chat")
         }
@@ -128,7 +156,7 @@ class RoomMemoryStore(private val db: HeliumDatabase, private val clock: () -> L
     /** 不再提: dismiss and add a "不再保存" rule right away. */
     suspend fun never(candidateId: Long) {
         val c = dao.candidate(candidateId) ?: return
-        db.withTransaction {
+        tx {
             dao.setCandidateStatus(c.id, CandidateStatus.DISMISSED)
             addRule(c.text)
         }
@@ -137,7 +165,7 @@ class RoomMemoryStore(private val db: HeliumDatabase, private val clock: () -> L
     suspend fun deleteRule(id: Long) = dao.deleteRule(id)
 
     /** 清空: every memory and pending candidate. "不再保存" rules stay, so cleared facts aren't re-learned silently. */
-    suspend fun clear() = db.withTransaction {
+    suspend fun clear() = tx {
         dao.clear()
         dao.clearCandidates()
     }

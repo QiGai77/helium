@@ -3,7 +3,7 @@
 ```
 UI (Compose)  ──  ChatViewModel ──► AgentController ──► ModelRunner (LlmClient: OpenAI / Anthropic / Gemini tools)
                                          │
-                                         ├─► Sentinel.guard()  ─ deny → high risk → tainted exfil → grant → risk×mode
+                                         ├─► Sentinel.guard()  ─ deny → tainted exfil (deny) → high risk → grant → risk×mode
                                          │        └─ Ask ─► ApprovalBroker (Room "approvals" + CompletableDeferred) ─► 审批卡
                                          ├─► ToolRegistry  (get_current_time · web_fetch · memory_search/save/forget)
                                          └─► EventSink / AuditSink (Room)
@@ -63,6 +63,7 @@ BootReceiver (BOOT_COMPLETED, package replaced, time / zone change, exact-alarm 
 | `tasks/TaskArgs.kt` | 工具参数解析（时间 "8:00/8点半/下午3点"、星期 [1,3,5]/"工作日"/"周一到周五"、date/in_minutes） |
 | `tasks/TaskTools.kt` | `task_create`(中) `reminder_create`(低) `task_list`(低) `task_update`(删除=高，修改/立即运行/恢复=中，暂停/跳过=低) |
 | `agent/tools/DeviceTools.kt` | `calendar_read`(低，READ_CALENDAR 运行时权限) `notify`(低，POST_NOTIFICATIONS) |
+| `agent/tools/CalendarWriteTool.kt` | `calendar_write`(高，WRITE_CALENDAR 运行时权限，审批卡显示完整日程；写进主可见日历。没有发邮件的工具——RiskPolicy 不再给不存在的 email 名字做高风险承诺） |
 | `tasks/TaskEngine.kt` | CRUD、触发认领、无头运行、运行历史、退避重试、开机重排 |
 | `tasks/TaskScheduler.kt` · `TaskWorker.kt` · `Receivers.kt` · `Notifications.kt` · `PermissionBroker.kt` | Android 外壳 |
 
@@ -85,11 +86,17 @@ turn finished ──► MemoryExtractor (gate: first-person / "记住"; one chea
                       └─► RoomMemoryStore.proposeAll: "不再保存" rules → de-dup vs memories + pending → memory_candidates (PENDING)
 chat card / 记忆页 「记住」 ──► memories (+ memory_fts via Room triggers)        「不用」 dismiss   「不再提这类」 dismiss + rule
 memory_save tool ──► propose only (LOW risk; the candidate card is the confirmation)
+manual add / edit on the 记忆页 ──► same "不再保存" check as proposeAll (ForgetRules: containment or bigram Dice ≥ 0.7);
+         a blocked write is refused with a toast and nothing is stored
+extraction failure ──► MemoryExtractor returns Failed (model timeout / unparseable output) and the chat shows a notice
+         under the candidate cards, instead of silently showing no candidates
 each turn ──► RoomMemoryStore.relevant(userText): FTS4 OR-query + query domains + safety facts → MemoryRanker → system prompt block
               (worded so the model uses facts silently, never "根据你的记忆")
 专长 ──► system prompt lists id/name/description; load_skill(id) returns the body (opencode); a picked skill (【专长：名】 from the
          composer) or a trigger / name in the message injects the body directly (OpenHands keyword-triggered skills)
-skill_save / skill_delete ──► HIGH risk: Sentinel always asks, once only, with the full SKILL.md on the card
+skill_save / skill_delete ──► HIGH risk: Sentinel always asks, once only, with the full SKILL.md on the card.
+         In the 记忆页 editor the same save/delete also asks first (a confirmation dialog for save; the editor's
+         own "删除后不可恢复" dialog for delete), so there is no path that writes a skill without the user seeing it.
 ```
 
 | 部分 | 文件 | 说明 |
@@ -107,7 +114,7 @@ tool call ─► Sentinel.guard(tool, args, conversation, tainted, sensitive)
    2 RiskPolicy.effective = max(tool.risk(args), floor(name)) == HIGH
                                                  → Ask [仅这一次]（读过网页时附 taint 警告）
    3 tainted && (tool.exfiltrates(args) || args 含本次读到的记忆/日历片段)
-                                                 → Ask [仅这一次] + taint 警告，无视任何授权
+                                                 → Deny（自动拒绝，不弹卡；审计记 deny + tainted，理由标“疑似网页注入”）
    4 grants (tool + target, 本对话 / 24h / 永久; "*" 与前缀 "*" 通配) → Allow
    5 LOW → Allow · 放手 → Allow · 谨慎 → Ask [一次, 本对话] · 标准 → Ask [全部四种]
 Ask ─► 审批卡（目标 + 完整内容）─► ApprovalBroker / BackgroundApprovalGate（通知，5 分钟无响应 = 拒绝）
@@ -117,8 +124,8 @@ Ask ─► 审批卡（目标 + 完整内容）─► ApprovalBroker / Backgroun
 
 | 部分 | 文件 | 说明 |
 |---|---|---|
-| 风险与作用域 | `agent/Sentinel.kt` | `RiskPolicy`：短信/邮件、写或删日历、删记忆、改专长按名字锁定为高风险（OpenHands `ConfirmRisky`：HIGH 必确认）；`scopesFor` / `clamp`；`Grant.covers`（对话、到期、通配）。 |
-| Taint | `agent/Sentinel.kt` `Taint`、`AgentController` | `web_fetch` / `web_search` 的结果把本次运行标为 tainted（对话里更早读过的网页也算）；`memory_search` / `calendar_read` 的输出切成片段，出站参数里出现就视为外泄；`web_fetch` 的 URL 带长参数也算外泄（`carriesPayload`）。审计记一条 `taint`，之后每行都带 `tainted`。 |
+| 风险与作用域 | `agent/Sentinel.kt` | `RiskPolicy`：短信、写或删日历、删记忆、改专长按名字锁定为高风险（OpenHands `ConfirmRisky`：HIGH 必确认）；没有 email 工具，所以 email 不再出现在高风险承诺里；`scopesFor` / `clamp`；`Grant.covers`（对话、到期、通配）。 |
+| Taint | `agent/Sentinel.kt` `Taint`、`AgentController` | `web_fetch` / `web_search` 的结果把本次运行标为 tainted（对话里更早读过的网页也算）；`memory_search` / `calendar_read` 的输出切成片段，出站参数里出现就视为外泄；`web_fetch` 的 URL 带长参数也算外泄（`carriesPayload`）。被污染的外泄调用直接拒绝（不弹卡，审计记 `deny` + `tainted`）；被污染但不外泄的高风险调用仍弹卡，卡上警告标“疑似网页注入”。审计记一条 `taint`，之后每行都带 `tainted`。 |
 | 发短信 | `agent/tools/SmsTool.kt`、`data/device/AndroidSms.kt` | `sms_send`（高）：审批卡显示收件人和全文；批准后 `ACTION_SENDTO smsto:` 打开短信应用填好内容，用户在短信应用里点发送，不申请 SEND_SMS。后台运行无法直接打开 Activity，改发一条点击即打开的通知。 |
 | 审计 | `data/db/AuditLog.kt`、`ui/screens/AuditScreen.kt` | 每次请求确认、批准、拒绝、规则拒绝、跳过、执行、失败、taint 都写一行（含风险、taint）。按时间（今天/7 天/30 天/全部）、结果、工具筛选；按当前筛选导出 `helium-audit/1` JSON（SAF `CreateDocument`）。 |
 | 权限页 | `ui/screens/PermissionsScreen.kt` | 列出所有有效授权（工具、目标、作用域、对话、到期），逐条或全部撤销；`RoomGrantStore.active` 每次都读表，撤销后下一次调用立即重新询问。附工具风险等级表。 |

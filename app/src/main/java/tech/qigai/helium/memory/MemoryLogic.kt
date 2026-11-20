@@ -165,6 +165,12 @@ object ExtractionPrompt {
         return out.take(5)
     }
 
+    /** True when the model answered with an explicit empty list (`{"facts":[]}`) rather than garbage. */
+    fun isExplicitEmpty(raw: String): Boolean {
+        val s = raw.replace(Regex("(?s)<think>.*?</think>"), "").replace(Regex("(?s)```(?:json)?"), "").trim()
+        return Regex("\"(?:facts|memory|memories)\"\\s*:\\s*\\[\\s*\\]").containsMatchIn(s)
+    }
+
     fun cleanFact(text: String): String? {
         var t = text.trim().trim('"', '“', '”', '-', '•', ' ')
         t = t.replace(Regex("^(用户|该用户|user)\\s*", RegexOption.IGNORE_CASE), "")

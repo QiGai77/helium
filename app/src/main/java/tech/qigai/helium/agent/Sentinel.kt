@@ -29,13 +29,15 @@ sealed interface Verdict {
 
 /**
  * Risk floor by tool name. A tool declares its own risk per call, but the categories the product promises to always
- * gate (send SMS / email, write or delete calendar, delete memory, change skills) are pinned to HIGH here, so a new
+ * gate (send SMS, write or delete calendar, delete memory, change skills) are pinned to HIGH here, so a new
  * tool in one of those families can't ship as LOW by mistake (OpenHands' ConfirmRisky: HIGH always confirms).
+ * There is no email tool: Helium has no sending channel for mail, so no email name is pinned here — a floor for
+ * a tool that does not exist would be a promise the product cannot keep.
  */
 object RiskPolicy {
-    private val highPrefixes = listOf("sms_", "email_", "mail_", "skill_create", "skill_update", "skill_edit", "skill_delete", "skill_save")
+    private val highPrefixes = listOf("sms_", "skill_create", "skill_update", "skill_edit", "skill_delete", "skill_save")
     private val highExact = setOf(
-        "sms_send", "email_send", "calendar_create", "calendar_write", "calendar_update", "calendar_delete",
+        "sms_send", "calendar_create", "calendar_write", "calendar_update", "calendar_delete",
         "memory_forget", "memory_delete", "memory_clear",
     )
 
@@ -67,7 +69,7 @@ object RiskPolicy {
  * whatever standing grants say.
  */
 object Taint {
-    const val WARNING = "这次对话读过网页等外部内容，接下来这一步会把数据发出去或做高风险操作。请确认这是你要的，而不是网页里的文字在指挥 Helium。"
+    const val WARNING = "疑似网页注入：这次对话读过网页等外部内容，接下来这一步会把数据发出去或做高风险操作。请确认这是你要的，而不是网页里的文字在指挥 Helium。"
 
     /** Pieces of private text (memory, calendar) read in this run; used to spot them in outgoing arguments. */
     fun fragments(output: String): List<String> {
@@ -94,8 +96,9 @@ object Taint {
 /**
  * The gate every tool call passes before it runs. Decision order (opencode evaluates deny first, then rules,
  * default ask; OpenHands confirms HIGH regardless of mode):
- * deny list → HIGH (always ask, once only) → tainted exfiltration (always ask, once only) →
- * standing grant → risk × trust mode.
+ * deny list → tainted exfiltration (deny: a page the run read must never be able to talk the agent into sending
+ * data out, so no card is offered — the user rephrases in their own words instead) → HIGH (always ask, once
+ * only) → standing grant → risk × trust mode.
  */
 class Sentinel(
     private val grants: GrantStore,
@@ -111,11 +114,11 @@ class Sentinel(
         sensitive: Collection<String> = emptyList(),
     ): Verdict {
         if (tool.name in denied) return Verdict.Deny("「${tool.name}」已被禁用")
+        if (tainted && (tool.exfiltrates(args) || Taint.carries(args, sensitive))) {
+            return Verdict.Deny("疑似网页注入：这次对话读过网页等外部内容，这一步会把数据发出去，已自动拒绝。请确认内容是你自己的、换个说法再试。")
+        }
         val risk = RiskPolicy.effective(tool, args)
         if (risk == Risk.HIGH) return Verdict.Ask(risk, listOf(GrantScope.ONCE), if (tainted) Taint.WARNING else null, tainted)
-        if (tainted && (tool.exfiltrates(args) || Taint.carries(args, sensitive))) {
-            return Verdict.Ask(risk, listOf(GrantScope.ONCE), Taint.WARNING, tainted = true)
-        }
         grants.active(tool.name, tool.target(args), conversationId, clock())?.let { return Verdict.Allow("已有授权：${it.scope.label}") }
         val m = mode()
         return when {

@@ -54,6 +54,7 @@ import kotlinx.coroutines.withContext
 import tech.qigai.helium.data.db.ForgetRuleEntity
 import tech.qigai.helium.data.db.MemoryCandidateEntity
 import tech.qigai.helium.data.db.MemoryEntity
+import tech.qigai.helium.memory.ForgetRules
 import tech.qigai.helium.memory.MemoryDomains
 import tech.qigai.helium.memory.MemoryExport
 import tech.qigai.helium.skills.SkillDoc
@@ -110,6 +111,11 @@ fun MemorySkillsScreen(
     var showRules by remember { mutableStateOf(false) }
     var editingSkill by remember { mutableStateOf<SkillDoc?>(null) }
     var creatingSkill by remember { mutableStateOf(false) }
+    /** A skill the editor produced, waiting for the save-confirmation dialog below (the tool path's approval card, editor-side). */
+    var pendingSkill by remember { mutableStateOf<SkillDoc?>(null) }
+
+    /** Same "不再保存" check the store applies: a forgotten fact cannot be typed back in by hand. */
+    fun blockedByRule(text: String) = ForgetRules.blocked(rules.map { it.text }, text)
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -189,14 +195,26 @@ fun MemorySkillsScreen(
     if (adding) {
         MemoryEditDialog(
             title = "让 Helium 记住", initialText = "", initialDomain = null, initialInferred = false,
-            onSave = { t, d, _ -> actions.add(t, d); adding = false; toast("已记住") },
+            onSave = { t, d, _ ->
+                if (blockedByRule(t)) {
+                    toast("这条设过「不再保存」，没有保存")
+                } else {
+                    actions.add(t, d); adding = false; toast("已记住")
+                }
+            },
             onForget = null, onDismiss = { adding = false },
         )
     }
     editing?.let { m ->
         MemoryEditDialog(
             title = "编辑记忆", initialText = m.text, initialDomain = MemoryDomains.normalize(m.domain), initialInferred = m.inferred,
-            onSave = { t, d, inf -> actions.edit(m.id, t, d, inf); editing = null },
+            onSave = { t, d, inf ->
+                if (blockedByRule(t)) {
+                    toast("这条设过「不再保存」，没有保存")
+                } else {
+                    actions.edit(m.id, t, d, inf); editing = null
+                }
+            },
             onForget = { editing = null; forgetting = m },
             onDismiss = { editing = null },
         )
@@ -260,14 +278,37 @@ fun MemorySkillsScreen(
         )
     }
     if (creatingSkill) {
-        SkillEditorDialog(null, onSave = { actions.saveSkill(it); creatingSkill = false; toast("已保存专长") }, onDelete = null, onDismiss = { creatingSkill = false })
+        SkillEditorDialog(
+            null,
+            // Saving a skill changes how Helium behaves later, so — like the skill_save tool's approval card —
+            // it only lands after an explicit confirmation (see the pendingSkill dialog below).
+            onSave = { pendingSkill = it; creatingSkill = false },
+            onDelete = null, onDismiss = { creatingSkill = false },
+        )
     }
     editingSkill?.let { s ->
         SkillEditorDialog(
             s,
-            onSave = { actions.saveSkill(it); editingSkill = null; toast("已保存") },
+            onSave = { pendingSkill = it; editingSkill = null },
+            // Deleting already asks inside the editor ("删除专长…？删除后不可恢复。"); that dialog is the confirmation.
             onDelete = { actions.deleteSkill(s.id); editingSkill = null; toast("已删除") },
             onDismiss = { editingSkill = null },
+        )
+    }
+    pendingSkill?.let { doc ->
+        AlertDialog(
+            onDismissRequest = { pendingSkill = null },
+            containerColor = Color.White,
+            title = { Text("保存专长「${doc.name}」？") },
+            text = {
+                Text(
+                    "专长会改变 Helium 以后按什么格式做事，保存前请确认内容无误。\n\n${doc.description}\n\n${doc.body.trim().take(200)}${if (doc.body.trim().length > 200) "…" else ""}",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { actions.saveSkill(doc); pendingSkill = null; toast("已保存专长") }) { Text("保存") }
+            },
+            dismissButton = { TextButton(onClick = { pendingSkill = null }) { Text("取消") } },
         )
     }
 }
