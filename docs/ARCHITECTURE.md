@@ -39,3 +39,31 @@ UI (Compose)  ──  ChatViewModel ──► AgentController ──► ModelRun
 - **Images.** Camera (`TakePicture` + FileProvider) or Photo Picker → EXIF-rotated, longest edge ≤1568 px, JPEG in `files/attachments/`; events store the file name. `WireFormat` inlines them per protocol: OpenAI `image_url` data URI, Anthropic `image` base64 block, Gemini `inlineData`. Only the 3 most recent image turns keep pixels in context.
 - **Voice.** Hold the mic: system `SpeechRecognizer`, zh-CN, partial results shown live, final text appended to the draft (RECORD_AUDIO asked on first use).
 - **Offline.** Send checks connectivity first; offline keeps draft and attachments and shows a banner with 重试. A failure mid-request keeps the user message and shows the error card with 重试.
+## Scheduled tasks (M5)
+
+```
+TasksScreen / task_* tools ──► TaskEngine (TaskService) ──► Room scheduled_tasks + task_runs
+                                    │
+             arm(nextRunAt) ────────┤  TaskScheduler
+                                    ├─► AlarmManager  setExactAndAllowWhileIdle (SCHEDULE_EXACT_ALARM) │ setAndAllowWhileIdle fallback
+                                    └─► WorkManager backup (+5 min)            ─┐
+TaskAlarmReceiver / TaskWorker(trigger) ──► TaskEngine.trigger(): CAS claim on nextRunAt (one winner) → arm next
+        NOTIFY (reminder) → notification right there        AGENT → WorkManager TaskWorker(run, expedited)
+TaskWorker(run) ──► TaskEngine.execute(): headless AgentController run into the task's own conversation
+                    BackgroundApprovalGate: PENDING approval row + 批准/拒绝 notification, 5 min silence = deny
+                    → task_runs row (cause, attempt, startedAt…finishedAt, summary | error) → result notification
+                    failure → Backoff 1, 2, 4, 8, 16 min (retry work requires network) → then wait for next fire
+BootReceiver (BOOT_COMPLETED, package replaced, time / zone change, exact-alarm grant) ──► rearmAll():
+                    overdue ≤ 2 h → run now (补跑); older → recorded as 错过, move on; RUNNING rows of a dead process → FAILED
+```
+
+| 文件 | 内容 |
+|---|---|
+| `tasks/Schedule.kt` | 纯逻辑：`Schedule.nextFire`（本地时区、每天/每周/一次）、`Backoff`、`FailureReason` |
+| `tasks/TaskArgs.kt` | 工具参数解析（时间 "8:00/8点半/下午3点"、星期 [1,3,5]/"工作日"/"周一到周五"、date/in_minutes） |
+| `tasks/TaskTools.kt` | `task_create`(中) `reminder_create`(低) `task_list`(低) `task_update`(删除=高，修改/立即运行/恢复=中，暂停/跳过=低) |
+| `agent/tools/DeviceTools.kt` | `calendar_read`(低，READ_CALENDAR 运行时权限) `notify`(低，POST_NOTIFICATIONS) |
+| `tasks/TaskEngine.kt` | CRUD、触发认领、无头运行、运行历史、退避重试、开机重排 |
+| `tasks/TaskScheduler.kt` · `TaskWorker.kt` · `Receivers.kt` · `Notifications.kt` · `PermissionBroker.kt` | Android 外壳 |
+
+Each run's events are the slice of the task conversation between `task_runs.startedAt` and `finishedAt`; the 任务详情 page opens it in the normal timeline.

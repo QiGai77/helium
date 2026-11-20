@@ -11,7 +11,9 @@ import tech.qigai.helium.agent.search.DeepSeekSearch
 import tech.qigai.helium.agent.search.ExaMcpSearch
 import tech.qigai.helium.agent.search.SearchProvider
 import tech.qigai.helium.agent.search.WebSearchTool
+import tech.qigai.helium.agent.tools.CalendarReadTool
 import tech.qigai.helium.agent.tools.MemoryForgetTool
+import tech.qigai.helium.agent.tools.NotifyTool
 import tech.qigai.helium.agent.tools.MemorySaveTool
 import tech.qigai.helium.agent.tools.MemorySearchTool
 import tech.qigai.helium.agent.tools.TimeTool
@@ -28,6 +30,16 @@ import tech.qigai.helium.data.llm.LlmClient
 import tech.qigai.helium.data.media.ImageStore
 import tech.qigai.helium.data.settings.SearchProviderId
 import tech.qigai.helium.data.settings.SettingsRepository
+import tech.qigai.helium.data.device.AndroidCalendar
+import tech.qigai.helium.tasks.HeliumNotifications
+import tech.qigai.helium.tasks.PermissionBroker
+import tech.qigai.helium.tasks.ReminderCreateTool
+import tech.qigai.helium.tasks.TaskCreateTool
+import tech.qigai.helium.tasks.TaskEngine
+import tech.qigai.helium.tasks.TaskListTool
+import tech.qigai.helium.tasks.TaskScheduler
+import tech.qigai.helium.tasks.TaskUpdateTool
+import kotlinx.coroutines.flow.MutableStateFlow
 
 /** Composition root: one instance of every repository, the tool registry and the sentinel. */
 class HeliumApplication : Application() {
@@ -43,6 +55,15 @@ class HeliumApplication : Application() {
     val audit by lazy { AuditRepository(db) }
     val approvals by lazy { ApprovalBroker(db) }
     val tasks by lazy { TaskRepository(db) }
+
+    // M5: scheduled tasks, reminders, notifications, runtime permissions.
+    val notifications by lazy { HeliumNotifications(this) }
+    val permissions by lazy { PermissionBroker(this) }
+    val taskScheduler by lazy { TaskScheduler(this) }
+    val taskEngine by lazy { TaskEngine(this, taskScheduler, notifications) }
+
+    /** Route a notification asked to open ("task/<id>", "approval"); the nav host consumes and clears it. */
+    val pendingRoute = MutableStateFlow<String?>(null)
 
     val exaSearch: SearchProvider by lazy {
         ExaMcpSearch(
@@ -70,6 +91,12 @@ class HeliumApplication : Application() {
                 MemorySearchTool(memories),
                 MemorySaveTool(memories),
                 MemoryForgetTool(memories),
+                CalendarReadTool(AndroidCalendar(this), permissions),
+                NotifyTool(notifications, permissions),
+                ReminderCreateTool(taskEngine),
+                TaskCreateTool(taskEngine),
+                TaskListTool(taskEngine),
+                TaskUpdateTool(taskEngine),
             ),
         )
     }
@@ -83,6 +110,11 @@ class HeliumApplication : Application() {
             // Nothing can still be waiting on an approval from a previous process.
             approvals.expireStale()
             grants.purgeExpired()
+        }
+        appScope.launch {
+            // Alarms are lost on force-stop and reboot; re-arm (idempotent) and record runs a dead process left open.
+            notifications.ensureChannels()
+            runCatching { taskEngine.rearmAll() }
         }
     }
 }

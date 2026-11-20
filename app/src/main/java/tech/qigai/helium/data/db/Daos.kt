@@ -3,6 +3,7 @@ package tech.qigai.helium.data.db
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
+import androidx.room.Update
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
@@ -178,6 +179,15 @@ interface TaskDao {
     @Query("SELECT * FROM scheduled_tasks ORDER BY createdAt")
     fun observeAll(): Flow<List<ScheduledTaskEntity>>
 
+    @Query("SELECT * FROM scheduled_tasks ORDER BY createdAt")
+    suspend fun all(): List<ScheduledTaskEntity>
+
+    @Query("SELECT * FROM scheduled_tasks WHERE id = :id")
+    suspend fun get(id: String): ScheduledTaskEntity?
+
+    @Query("SELECT * FROM scheduled_tasks WHERE id = :id")
+    fun observe(id: String): Flow<ScheduledTaskEntity?>
+
     @Upsert
     suspend fun upsert(t: ScheduledTaskEntity)
 
@@ -186,4 +196,40 @@ interface TaskDao {
 
     @Query("DELETE FROM scheduled_tasks WHERE id = :id")
     suspend fun delete(id: String)
+
+    /** Compare-and-set on the pending fire time: exactly one trigger (alarm, backup work, boot catch-up) wins. */
+    @Query("UPDATE scheduled_tasks SET nextRunAt = :next WHERE id = :id AND enabled = 1 AND nextRunAt = :expected")
+    suspend fun claim(id: String, expected: Long, next: Long?): Int
+
+    @Query("UPDATE scheduled_tasks SET nextRunAt = :next WHERE id = :id")
+    suspend fun setNext(id: String, next: Long?)
+
+    @Query("UPDATE scheduled_tasks SET lastStatus = :status, failCount = :failCount, lastRunAt = :at WHERE id = :id")
+    suspend fun setOutcome(id: String, status: String, failCount: Int, at: Long)
+
+    @Insert
+    suspend fun insertRun(r: TaskRunEntity): Long
+
+    @Update
+    suspend fun updateRun(r: TaskRunEntity)
+
+    @Query("SELECT * FROM task_runs WHERE id = :id")
+    suspend fun run(id: Long): TaskRunEntity?
+
+    @Query("SELECT * FROM task_runs WHERE taskId = :taskId ORDER BY startedAt DESC LIMIT :limit")
+    fun observeRuns(taskId: String, limit: Int): Flow<List<TaskRunEntity>>
+
+    @Query("SELECT * FROM task_runs WHERE id = :id")
+    fun observeRun(id: Long): Flow<TaskRunEntity?>
+
+    @Query("DELETE FROM task_runs WHERE taskId = :taskId")
+    suspend fun deleteRuns(taskId: String)
+
+    /** Runs left RUNNING by a process that died. */
+    @Query("UPDATE task_runs SET status = 'FAILED', error = :reason, finishedAt = :at WHERE status = 'RUNNING' AND startedAt < :before")
+    suspend fun failStale(before: Long, at: Long, reason: String): Int
+
+    /** Keep the history bounded. */
+    @Query("DELETE FROM task_runs WHERE taskId = :taskId AND id NOT IN (SELECT id FROM task_runs WHERE taskId = :taskId ORDER BY startedAt DESC LIMIT :keep)")
+    suspend fun trimRuns(taskId: String, keep: Int)
 }

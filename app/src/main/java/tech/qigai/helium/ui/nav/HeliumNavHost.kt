@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -45,8 +46,11 @@ import tech.qigai.helium.ui.screens.AuditScreen
 import tech.qigai.helium.ui.screens.timelineFrom
 import tech.qigai.helium.agent.AgentState
 import tech.qigai.helium.data.model.MemoryItem
-import tech.qigai.helium.data.model.ScheduledTask
-import tech.qigai.helium.data.model.TaskIcon
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.produceState
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
+import tech.qigai.helium.ui.screens.TaskDetailScreen
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -60,6 +64,7 @@ import tech.qigai.helium.ui.screens.MeScreen
 import tech.qigai.helium.ui.screens.MemorySkillsScreen
 import tech.qigai.helium.ui.screens.ModelsScreen
 import tech.qigai.helium.ui.screens.TasksScreen
+import tech.qigai.helium.ui.screens.nextLabel
 import tech.qigai.helium.ui.screens.TimelineScreen
 import tech.qigai.helium.ui.theme.HeColors
 
@@ -74,6 +79,10 @@ object Routes {
     const val APPROVAL = "approval"
     const val TIMELINE = "timeline"
     const val AUDIT = "audit"
+    const val TASK = "task/{id}"
+    const val TASK_RUN = "taskrun/{runId}"
+    fun task(id: String) = "task/$id"
+    fun taskRun(runId: Long) = "taskrun/$runId"
 }
 
 /** Tabs that show the bottom nav. 对话 is full-screen (design 02: 对话详情页无底栏); 记忆与技能 shows it unselected. */
@@ -100,7 +109,9 @@ fun HeliumNavHost(nav: NavHostController = rememberNavController()) {
     val audit by app.audit.observeRecent().collectAsState(initial = emptyList())
     val weekAgo = remember { System.currentTimeMillis() - 7L * 24 * 3600_000 }
     val auditWeek by app.audit.observeCountSince(weekAgo).collectAsState(initial = 0)
-    val taskRows by app.tasks.observeAll().collectAsState(initial = emptyList())
+    val taskRows by app.taskEngine.observeAll().collectAsState(initial = emptyList())
+    val runningTasks by app.taskEngine.running.collectAsState()
+    val pendingRoute by app.pendingRoute.collectAsState()
     val conversations by chatVm.conversations.collectAsState()
     val backStack by nav.currentBackStackEntryAsState()
     val route = backStack?.destination?.route
@@ -115,6 +126,13 @@ fun HeliumNavHost(nav: NavHostController = rememberNavController()) {
     }
 
     fun open(r: String) = nav.navigate(r) { launchSingleTop = true }
+
+    // Notifications deep-link here ("task/<id>", "approval").
+    LaunchedEffect(pendingRoute) {
+        val r = pendingRoute ?: return@LaunchedEffect
+        app.pendingRoute.value = null
+        runCatching { open(r) }
+    }
 
     Box(
         Modifier
@@ -167,15 +185,67 @@ fun HeliumNavHost(nav: NavHostController = rememberNavController()) {
                 }
                 composable(Routes.GLANCE) { GlanceScreen(today = null, onOpenMe = { open(Routes.ME) }, toast = toast) }
                 composable(Routes.TASKS) {
+                    var exactOk by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(app.taskScheduler.exactAllowed()) }
+                    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
+                        exactOk = app.taskScheduler.exactAllowed()
+                        onPauseOrDispose { }
+                    }
                     TasksScreen(
-                        tasks = taskRows.map { t ->
-                            ScheduledTask(t.id, t.title, "${when (t.kind) { "DAILY" -> "每天"; "WEEKLY" -> "每周"; else -> "一次" }} ${t.timeOfDay}", TaskIcon.SUN, t.enabled,
-                                (1..7).filter { d -> t.kind != "WEEKLY" || ((t.weekdays shr (d - 1)) and 1) == 1 }.toSet())
-                        },
+                        tasks = taskRows,
+                        running = runningTasks,
                         projects = emptyList(),
-                        onToggle = { id, on -> scope.launch { app.tasks.setEnabled(id, on) } },
+                        exactAlarms = exactOk,
+                        onFixExactAlarms = {
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                                runCatching {
+                                    context.startActivity(
+                                        android.content.Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, android.net.Uri.parse("package:" + context.packageName)),
+                                    )
+                                }
+                            }
+                        },
+                        onToggle = { id, on -> scope.launch { app.taskEngine.setEnabled(id, on) } },
+                        onOpenTask = { open(Routes.task(it)) },
+                        onCreate = { d ->
+                            scope.launch {
+                                val t = app.taskEngine.create(d)
+                                toast(if (t.nextRunAt != null) "已创建「${t.title}」，${t.nextLabel(false)}" else "已创建「${t.title}」")
+                            }
+                        },
                         onOpenMe = { open(Routes.ME) },
                         onOpenTimeline = { open(Routes.TIMELINE) },
+                        toast = toast,
+                    )
+                }
+                composable(Routes.TASK, arguments = listOf(navArgument("id") { type = NavType.StringType })) { entry ->
+                    val id = entry.arguments?.getString("id").orEmpty()
+                    val task by app.taskEngine.observe(id).collectAsState(initial = null)
+                    val runs by app.taskEngine.observeRuns(id).collectAsState(initial = emptyList())
+                    TaskDetailScreen(
+                        task = task,
+                        runs = runs,
+                        running = id in runningTasks,
+                        onBack = { if (!nav.popBackStack()) goTab(NavTab.TASKS) },
+                        onRunNow = { scope.launch { toast(if (app.taskEngine.runNow(id)) "已开始运行，完成后发通知" else "正在运行，等这次结束") } },
+                        onSkipNext = { scope.launch { app.taskEngine.skipNext(id)?.let { toast("已跳过，${it.nextLabel(false)}") } } },
+                        onToggle = { on -> scope.launch { app.taskEngine.setEnabled(id, on); toast(if (on) "已恢复" else "已暂停，不会再触发") } },
+                        onDelete = { scope.launch { app.taskEngine.delete(id); nav.popBackStack(); toast("已删除") } },
+                        onOpenRun = { open(Routes.taskRun(it)) },
+                    )
+                }
+                composable(Routes.TASK_RUN, arguments = listOf(navArgument("runId") { type = NavType.LongType })) { entry ->
+                    val runId = entry.arguments?.getLong("runId") ?: 0L
+                    val runRow by app.taskEngine.observeRun(runId).collectAsState(initial = null)
+                    val events by produceState(initialValue = emptyList<tech.qigai.helium.agent.AgentEvent>(), runRow) {
+                        value = runRow?.let { app.taskEngine.runEvents(it) } ?: emptyList()
+                    }
+                    val live = runRow?.status == tech.qigai.helium.tasks.RunStatus.RUNNING
+                    TimelineScreen(
+                        run = timelineFrom(events, live, false),
+                        running = false,
+                        onStop = {},
+                        onBack = { nav.popBackStack() },
+                        onOpenApproval = { open(Routes.APPROVAL) },
                         toast = toast,
                     )
                 }
