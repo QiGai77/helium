@@ -77,3 +77,28 @@ Each run's events are the slice of the task conversation between `task_runs.star
 | 自定义卡 | `glance/Cards.kt` | 一句话 → 卡片定义 JSON（url + format + 字段规则 + refresh_minutes）。规则：JSONPath 子集、`regex:`、`meta:`、`items:n`；刷新间隔 ≥ 60 分钟；拒绝内网地址。「盯 BTC/ETH… 价格」直接映射 CoinGecko simple/price，不需要模型。 |
 | 后台刷新 | `glance/GlanceRefreshWorker.kt` | WorkManager 唯一周期任务 `glance-refresh`（1 小时，需联网），`HeliumApplication.onCreate` 入队；到期的卡（10 分钟余量）、订阅、天气、理由一起刷新。 |
 | 首页英雄卡 | `glance/DeviceSources.kt`、`ui/screens/HomeHero.kt` | `CalendarContract.Instances` 取最近的日程（定时日程优先，36 小时内），没有日程时显示今天天气。首次进入首页请求一次定位 + 日历权限。 |
+
+## 审批闸门 (M3)
+
+```
+tool call ─► Sentinel.guard(tool, args, conversation, tainted, sensitive)
+   1 deny list                                   → Deny
+   2 RiskPolicy.effective = max(tool.risk(args), floor(name)) == HIGH
+                                                 → Ask [仅这一次]（读过网页时附 taint 警告）
+   3 tainted && (tool.exfiltrates(args) || args 含本次读到的记忆/日历片段)
+                                                 → Ask [仅这一次] + taint 警告，无视任何授权
+   4 grants (tool + target, 本对话 / 24h / 永久; "*" 与前缀 "*" 通配) → Allow
+   5 LOW → Allow · 放手 → Allow · 谨慎 → Ask [一次, 本对话] · 标准 → Ask [全部四种]
+Ask ─► 审批卡（目标 + 完整内容）─► ApprovalBroker / BackgroundApprovalGate（通知，5 分钟无响应 = 拒绝）
+       返回的作用域按卡片提供的范围夹紧（RiskPolicy.clamp），HIGH 和 taint 下的批准永不存授权
+       拒绝 → 本轮剩余工具调用全部跳过（opencode：拒绝作用于整条消息）
+```
+
+| 部分 | 文件 | 说明 |
+|---|---|---|
+| 风险与作用域 | `agent/Sentinel.kt` | `RiskPolicy`：短信/邮件、写或删日历、删记忆、改专长按名字锁定为高风险（OpenHands `ConfirmRisky`：HIGH 必确认）；`scopesFor` / `clamp`；`Grant.covers`（对话、到期、通配）。 |
+| Taint | `agent/Sentinel.kt` `Taint`、`AgentController` | `web_fetch` / `web_search` 的结果把本次运行标为 tainted（对话里更早读过的网页也算）；`memory_search` / `calendar_read` 的输出切成片段，出站参数里出现就视为外泄；`web_fetch` 的 URL 带长参数也算外泄（`carriesPayload`）。审计记一条 `taint`，之后每行都带 `tainted`。 |
+| 发短信 | `agent/tools/SmsTool.kt`、`data/device/AndroidSms.kt` | `sms_send`（高）：审批卡显示收件人和全文；批准后 `ACTION_SENDTO smsto:` 打开短信应用填好内容，用户在短信应用里点发送，不申请 SEND_SMS。后台运行无法直接打开 Activity，改发一条点击即打开的通知。 |
+| 审计 | `data/db/AuditLog.kt`、`ui/screens/AuditScreen.kt` | 每次请求确认、批准、拒绝、规则拒绝、跳过、执行、失败、taint 都写一行（含风险、taint）。按时间（今天/7 天/30 天/全部）、结果、工具筛选；按当前筛选导出 `helium-audit/1` JSON（SAF `CreateDocument`）。 |
+| 权限页 | `ui/screens/PermissionsScreen.kt` | 列出所有有效授权（工具、目标、作用域、对话、到期），逐条或全部撤销；`RoomGrantStore.active` 每次都读表，撤销后下一次调用立即重新询问。附工具风险等级表。 |
+| 存储 | DB v6 `MIGRATION_5_6` | `audit.risk`、`audit.tainted`、`index_audit_tool`、`approvals.tainted`（v5 归 M4 记忆，这个分支上是空占位）。 |

@@ -15,7 +15,7 @@ import tech.qigai.helium.chat.SearchText
         EventFts::class, PendingReplyEntity::class, TaskRunEntity::class,
         FeedSourceEntity::class, FeedItemEntity::class, GlanceCardEntity::class, WeatherCacheEntity::class,
     ],
-    version = 4,
+    version = 6,
     exportSchema = true,
 )
 abstract class HeliumDatabase : RoomDatabase() {
@@ -31,7 +31,7 @@ abstract class HeliumDatabase : RoomDatabase() {
 
     companion object {
         /**
-         * Version plan: 2 = M1 chat, 3 = M5 tasks, 4 = M6 glance. Each milestone branch owns one step; the others
+         * Version plan: 2 = M1 chat, 3 = M5 tasks, 4 = M6 glance, 5 = M4 memory, 6 = M3 approvals. Each milestone branch owns one step; the others
          * are added as placeholders on their own branches and replaced on merge.
          */
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -74,7 +74,28 @@ abstract class HeliumDatabase : RoomDatabase() {
             }
         }
 
-        val MIGRATIONS = arrayOf<Migration>(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+        /** M4 memory owns v5. Empty here: replaced on merge. */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // replaced on merge
+            }
+        }
+
+        /** M3 approvals: audit risk / taint columns + tool index, taint flag on stored approvals. */
+        val APPROVALS_V6_SQL = listOf(
+            "ALTER TABLE `audit` ADD COLUMN `risk` TEXT DEFAULT NULL",
+            "ALTER TABLE `audit` ADD COLUMN `tainted` INTEGER NOT NULL DEFAULT 0",
+            "CREATE INDEX IF NOT EXISTS `index_audit_tool` ON `audit` (`tool`)",
+            "ALTER TABLE `approvals` ADD COLUMN `tainted` INTEGER NOT NULL DEFAULT 0",
+        )
+
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                APPROVALS_V6_SQL.forEach { db.execSQL(it) }
+            }
+        }
+
+        val MIGRATIONS = arrayOf<Migration>(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
 
         /** Fills `events.searchText` for messages written before v2; the AFTER UPDATE trigger indexes them. */
         private fun backfillSearchText(db: SupportSQLiteDatabase) {

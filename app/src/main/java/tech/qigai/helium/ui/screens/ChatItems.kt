@@ -118,6 +118,7 @@ fun toolLabel(name: String, arguments: String?): String {
         "memory_search" -> "查找记忆「${args.optString("query").take(16)}」"
         "memory_save" -> "保存记忆「${args.optString("text").take(16)}」"
         "memory_forget" -> "遗忘一条记忆"
+        "sms_send" -> "写短信给 " + args.optString("name").ifBlank { args.optString("to") }.take(16)
         else -> name
     }
 }
@@ -178,6 +179,14 @@ fun InlineApproval(item: ChatItem.Approval, awaiting: Boolean, onDecide: (Boolea
             HeTag("需要你确认", TagKind.AMBER)
             Spacer(Modifier.width(8.dp))
             HeTag("风险 ${r.risk.label}", if (r.risk == Risk.HIGH) TagKind.AMBER else TagKind.NEUTRAL, dot = false)
+            if (r.tainted) {
+                Spacer(Modifier.width(8.dp))
+                HeTag("读过外部内容", TagKind.AMBER, dot = false)
+            }
+        }
+        if (r.target.isNotBlank() && r.target != "*") {
+            Spacer(Modifier.height(8.dp))
+            Text("目标：${r.target}", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = HeColors.Ink)
         }
         Spacer(Modifier.height(10.dp))
         Text(r.title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = HeColors.Ink)

@@ -124,6 +124,7 @@ class CalendarReadTool(
     )
 
     override fun risk(args: JSONObject) = Risk.LOW
+    override val readsPrivate get() = true
     override fun target(args: JSONObject) = "calendar"
     override fun title(args: JSONObject) = "读取日历"
 

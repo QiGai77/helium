@@ -15,6 +15,11 @@
         <intent>
             <action android:name="android.media.action.IMAGE_CAPTURE" />
         </intent>
+        <!-- M3 sms_send: open the SMS app prefilled (ACTION_SENDTO smsto:), no SEND_SMS permission. -->
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="smsto" />
+        </intent>
         <intent>
             <action android:name="android.support.customtabs.action.CustomTabsService" />
         </intent>

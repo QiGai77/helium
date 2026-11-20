@@ -37,6 +37,7 @@ class WebFetchTool(private val http: OkHttpClient, private val userAgent: String
     )
     override val readsUntrusted get() = true
     override fun risk(args: JSONObject) = Risk.LOW
+    override fun exfiltrates(args: JSONObject) = carriesPayload(args.optString("url"))
     override fun target(args: JSONObject) = runCatching { URI(args.optString("url")).host ?: "*" }.getOrDefault("*")
     override fun title(args: JSONObject) = "读取网页 ${target(args)}"
 
@@ -64,6 +65,18 @@ class WebFetchTool(private val http: OkHttpClient, private val userAgent: String
     }
 
     companion object {
+        /**
+         * A GET can smuggle data out in its URL. A long query string or an unusually long path segment is treated
+         * as a payload; only matters once the run is tainted (see [tech.qigai.helium.agent.Taint]).
+         */
+        fun carriesPayload(url: String): Boolean {
+            val u = runCatching { URI(url.trim()) }.getOrNull() ?: return false
+            val query = u.rawQuery.orEmpty()
+            val longSegment = u.rawPath.orEmpty().split('/').any { it.length > 64 }
+            val longValue = query.split('&').any { it.substringAfter('=', "").length > 48 }
+            return query.length > 120 || longValue || longSegment
+        }
+
         fun isPrivateHost(host: String): Boolean {
             val h = host.lowercase().trim('[', ']')
             if (h == "localhost" || h.endsWith(".local") || h.endsWith(".internal")) return true
@@ -114,6 +127,7 @@ interface MemoryStore {
 val MEMORY_DOMAINS = listOf("人", "饮食", "出行", "购物", "工作", "家与健康", "偏好", "其他")
 
 class MemorySearchTool(private val store: MemoryStore) : Tool {
+    override val readsPrivate get() = true
     override val spec = ToolSpec(
         "memory_search",
         "在用户的长期记忆里按关键词查找（偏好、过敏、家人、地址等）。回答与用户个人情况有关的问题前先查。",

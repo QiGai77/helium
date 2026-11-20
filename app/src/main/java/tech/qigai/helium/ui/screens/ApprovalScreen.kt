@@ -91,7 +91,7 @@ fun ApprovalScreen(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                 Icon(HeIcons.Shield, null, tint = HeColors.Ink2, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("授权可以在「我的 → 权限与审计」随时撤销", fontSize = 13.sp, color = HeColors.Ink2)
+                Text(if (scopes.size == 1 && cur.risk == Risk.HIGH.name) "高风险操作只能单次批准" else "授权可以在「我的 → 权限」随时撤销", fontSize = 13.sp, color = HeColors.Ink2)
             }
             Spacer(Modifier.height(24.dp))
         }
@@ -115,13 +115,22 @@ private fun ApprovalCard(a: ApprovalEntity) {
                     HeTag("待审批", TagKind.AMBER, shape = HeShapes.Tag, height = 28.dp, fontSize = 13)
                     Spacer(Modifier.width(8.dp))
                     HeTag("风险 ${risk.label}", TagKind.GLASS, dot = false, shape = HeShapes.Tag, height = 28.dp, fontSize = 13)
+                    if (a.tainted) {
+                        Spacer(Modifier.width(8.dp))
+                        HeTag("读过外部内容", TagKind.GLASS, dot = false, shape = HeShapes.Tag, height = 28.dp, fontSize = 13)
+                    }
                 }
                 Spacer(Modifier.height(16.dp))
                 Text(a.title, fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold, color = HeColors.Ink, maxLines = 2)
-                Text("工具：${a.tool} · 目标：${a.target}", fontSize = 12.sp, color = HeColors.Ink.copy(alpha = 0.7f))
+                Text("工具：${toolDisplayName(a.tool)}（${a.tool}）", fontSize = 12.sp, color = HeColors.Ink.copy(alpha = 0.7f))
             }
         }
         Column(Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
+            Text("目标", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = HeColors.Ink2)
+            Text(a.target, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = HeColors.Ink)
+            HorizontalDivider(Modifier.padding(vertical = 12.dp), color = HeColors.Hair)
+            Text("完整内容", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = HeColors.Ink2)
+            Spacer(Modifier.height(4.dp))
             Text(a.detail, fontSize = 15.sp, lineHeight = 22.sp, color = HeColors.Ink)
             if (a.warning != null) {
                 HorizontalDivider(Modifier.padding(vertical = 12.dp), color = HeColors.Hair)

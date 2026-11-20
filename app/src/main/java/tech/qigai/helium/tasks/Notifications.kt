@@ -92,6 +92,24 @@ class HeliumNotifications(private val context: Context) : Notifier {
 
     fun cancel(id: Int) = nm.cancel(id)
 
+    /** A tap-to-open notification for an activity a background run may not start itself (e.g. the SMS composer). */
+    @SuppressLint("MissingPermission")
+    fun openActivity(title: String, body: String, intent: Intent): Boolean {
+        if (!canNotify()) return false
+        ensureChannels()
+        val id = (System.currentTimeMillis() and 0xFFFF).toInt() + 0x50000
+        val pi = PendingIntent.getActivity(context, id, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val n = NotificationCompat.Builder(context, CH_APPROVALS)
+            .setSmallIcon(R.drawable.ic_stat_helium)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentIntent(pi)
+            .setAutoCancel(true)
+            .build()
+        return runCatching { nm.notify(id, n); true }.getOrDefault(false)
+    }
+
     private fun actionIntent(requestId: String, approve: Boolean): PendingIntent {
         val i = Intent(context, ApprovalActionReceiver::class.java)
             .setAction(if (approve) ApprovalActionReceiver.APPROVE else ApprovalActionReceiver.REJECT)

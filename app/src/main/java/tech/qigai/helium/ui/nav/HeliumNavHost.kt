@@ -43,6 +43,13 @@ import tech.qigai.helium.ui.components.NavTab
 import tech.qigai.helium.ui.components.rememberToast
 import tech.qigai.helium.ui.screens.ApprovalScreen
 import tech.qigai.helium.ui.screens.AuditScreen
+import tech.qigai.helium.ui.screens.PermissionsScreen
+import tech.qigai.helium.ui.screens.ToolRiskRow
+import tech.qigai.helium.agent.RiskPolicy
+import tech.qigai.helium.data.db.AuditExport
+import tech.qigai.helium.data.db.AuditFilter
+import tech.qigai.helium.data.db.AuditOutcome
+import tech.qigai.helium.data.db.AuditPeriod
 import tech.qigai.helium.ui.screens.timelineFrom
 import tech.qigai.helium.agent.AgentState
 import tech.qigai.helium.data.model.MemoryItem
@@ -80,6 +87,7 @@ object Routes {
     const val APPROVAL = "approval"
     const val TIMELINE = "timeline"
     const val AUDIT = "audit"
+    const val PERMISSIONS = "permissions"
     const val TASK = "task/{id}"
     const val TASK_RUN = "taskrun/{runId}"
     fun task(id: String) = "task/$id"
@@ -107,7 +115,6 @@ fun HeliumNavHost(nav: NavHostController = rememberNavController()) {
     val pending by app.approvals.observePending().collectAsState(initial = emptyList())
     val memories by app.memories.observeAll().collectAsState(initial = emptyList())
     val grants by app.grants.observeAll().collectAsState(initial = emptyList())
-    val audit by app.audit.observeRecent().collectAsState(initial = emptyList())
     val weekAgo = remember { System.currentTimeMillis() - 7L * 24 * 3600_000 }
     val auditWeek by app.audit.observeCountSince(weekAgo).collectAsState(initial = 0)
     val taskRows by app.taskEngine.observeAll().collectAsState(initial = emptyList())
@@ -260,6 +267,7 @@ fun HeliumNavHost(nav: NavHostController = rememberNavController()) {
                         onOpenMemory = { open(Routes.MEMORY) },
                         onOpenApproval = { open(Routes.APPROVAL) },
                         onOpenAudit = { open(Routes.AUDIT) },
+                        onOpenPermissions = { open(Routes.PERMISSIONS) },
                         memoryCount = memories.size,
                         auditCount = auditWeek,
                         grantCount = grants.size,
@@ -303,24 +311,51 @@ fun HeliumNavHost(nav: NavHostController = rememberNavController()) {
                     )
                 }
                 composable(Routes.AUDIT) {
-                    AuditScreen(
-                        grants = grants,
-                        audit = audit,
-                        onRevoke = { id -> scope.launch { app.grants.revoke(id); toast("已撤销，下次会重新询问") } },
-                        onExport = {
-                            scope.launch {
-                                val json = org.json.JSONArray(app.audit.all().map { a ->
-                                    org.json.JSONObject().put("at", a.at).put("conversationId", a.conversationId).put("kind", a.kind)
-                                        .put("tool", a.tool).put("target", a.target).put("detail", a.detail)
-                                }).toString(2)
-                                val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                    type = "application/json"
-                                    putExtra(android.content.Intent.EXTRA_SUBJECT, "helium-audit.json")
-                                    putExtra(android.content.Intent.EXTRA_TEXT, json)
+                    var period by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(AuditPeriod.WEEK) }
+                    var outcome by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf<AuditOutcome?>(null) }
+                    var tool by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf<String?>(null) }
+                    val zone = java.time.ZoneId.systemDefault()
+                    val filter = remember(period, outcome, tool) { AuditFilter.of(period, System.currentTimeMillis(), zone, tool, outcome) }
+                    val rows by remember(filter) { app.audit.observe(filter) }.collectAsState(initial = emptyList())
+                    val auditTools by app.audit.observeTools().collectAsState(initial = emptyList())
+                    val exporter = androidx.activity.compose.rememberLauncherForActivityResult(
+                        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/json"),
+                    ) { uri ->
+                        if (uri == null) return@rememberLauncherForActivityResult
+                        scope.launch {
+                            val ok = runCatching {
+                                val json = app.audit.export(filter, System.currentTimeMillis(), zone)
+                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                    context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(json.toByteArray(Charsets.UTF_8)) }
                                 }
-                                context.startActivity(android.content.Intent.createChooser(send, "导出审计日志"))
-                            }
-                        },
+                            }.isSuccess
+                            toast(if (ok) "已导出审计日志" else "导出失败")
+                        }
+                    }
+                    AuditScreen(
+                        rows = rows,
+                        tools = auditTools,
+                        period = period,
+                        outcome = outcome,
+                        tool = tool,
+                        onPeriod = { period = it },
+                        onOutcome = { outcome = it },
+                        onTool = { tool = it },
+                        onExport = { exporter.launch(AuditExport.fileName(System.currentTimeMillis(), zone)) },
+                        onOpenPermissions = { open(Routes.PERMISSIONS) },
+                        onBack = { nav.popBackStack() },
+                    )
+                }
+                composable(Routes.PERMISSIONS) {
+                    val toolRows = remember { app.tools.all.map { ToolRiskRow(it.name, RiskPolicy.effective(it, org.json.JSONObject())) }.sortedBy { it.risk.ordinal } }
+                    PermissionsScreen(
+                        grants = grants,
+                        conversationTitles = conversations.associate { it.id to it.title },
+                        tools = toolRows,
+                        now = System.currentTimeMillis(),
+                        onRevoke = { g -> scope.launch { app.grants.revoke(g.id); toast("已撤销，下次会重新询问") } },
+                        onRevokeAll = { scope.launch { app.grants.revokeAll(); toast("已撤销全部授权") } },
+                        onOpenAudit = { open(Routes.AUDIT) },
                         onBack = { nav.popBackStack() },
                     )
                 }

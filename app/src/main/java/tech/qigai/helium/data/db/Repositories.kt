@@ -6,7 +6,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import tech.qigai.helium.agent.AgentEvent
 import tech.qigai.helium.agent.ApprovalGate
+import tech.qigai.helium.agent.AuditRecord
 import tech.qigai.helium.agent.AuditSink
+import tech.qigai.helium.agent.RiskPolicy
 import tech.qigai.helium.agent.EventCodec
 import tech.qigai.helium.agent.EventSink
 import tech.qigai.helium.agent.Grant
@@ -125,7 +127,10 @@ class RoomGrantStore(private val db: HeliumDatabase) : GrantStore {
     }
 
     fun observeAll(): Flow<List<GrantEntity>> = db.grants().observeAll()
+
+    /** Takes effect on the very next call: [active] always reads the table, nothing is cached. */
     suspend fun revoke(id: Long) = db.grants().delete(id)
+    suspend fun revokeAll() = db.grants().deleteAll()
     suspend fun purgeExpired() = db.grants().purgeExpired(System.currentTimeMillis())
 
     private fun GrantEntity.toGrant() = Grant(tool, target, runCatching { GrantScope.valueOf(scope) }.getOrDefault(GrantScope.ONCE), conversationId, expiresAt, id, createdAt)
@@ -168,13 +173,27 @@ class RoomMemoryStore(private val db: HeliumDatabase) : MemoryStore {
 }
 
 class AuditRepository(private val db: HeliumDatabase) : AuditSink {
-    override suspend fun record(conversationId: String, kind: String, tool: String, target: String, detail: String) {
-        db.audit().insert(AuditEntity(0, System.currentTimeMillis(), conversationId, kind, tool, target, detail.take(500)))
+    override suspend fun record(entry: AuditRecord) {
+        db.audit().insert(
+            AuditEntity(
+                0, System.currentTimeMillis(), entry.conversationId, entry.kind, entry.tool, entry.target, entry.detail.take(2000),
+                entry.risk?.name, entry.tainted,
+            ),
+        )
     }
 
     fun observeRecent(limit: Int = 200) = db.audit().observeRecent(limit)
     fun observeCountSince(since: Long) = db.audit().observeCountSince(since)
+    fun observeTools() = db.audit().observeTools()
+
+    /** Date range in SQL, tool / outcome in [AuditFilter] (the same code the export uses). */
+    fun observe(filter: AuditFilter, limit: Int = 500): Flow<List<AuditEntity>> =
+        db.audit().observeBetween(filter.from ?: 0L, filter.to ?: Long.MAX_VALUE, 20_000).map { filter.apply(it).take(limit) }
+
     suspend fun all() = db.audit().all()
+
+    suspend fun export(filter: AuditFilter, now: Long, zone: java.time.ZoneId): String =
+        AuditExport.toJson(filter.apply(db.audit().between(filter.from ?: 0L, filter.to ?: Long.MAX_VALUE)), filter, now, zone)
 }
 
 /**
@@ -198,6 +217,7 @@ class ApprovalBroker(private val db: HeliumDatabase) : ApprovalGate {
             ApprovalEntity(
                 request.requestId, conversationId, request.tool, request.title, request.detail, request.target,
                 request.risk.name, request.warning, request.scopes.joinToString(",") { it.name }, "PENDING", request.at, null,
+                request.tainted,
             ),
         )
         try {
@@ -211,8 +231,9 @@ class ApprovalBroker(private val db: HeliumDatabase) : ApprovalGate {
     /** Returns false when nothing is waiting for this request any more (e.g. the run was stopped). */
     suspend fun decide(requestId: String, approved: Boolean, scope: GrantScope?): Boolean {
         val d = waiting[requestId]
+        val offered = db.approvals().get(requestId)?.scopes?.split(',')?.mapNotNull { runCatching { GrantScope.valueOf(it) }.getOrNull() }.orEmpty()
         db.approvals().decide(requestId, if (d == null) "EXPIRED" else if (approved) "APPROVED" else "REJECTED", System.currentTimeMillis())
-        return d?.complete(AgentEvent.ApprovalDecision(requestId, approved, if (approved) scope ?: GrantScope.ONCE else null)) ?: false
+        return d?.complete(AgentEvent.ApprovalDecision(requestId, approved, if (approved) RiskPolicy.clamp(offered, scope) else null)) ?: false
     }
 }
 

@@ -42,6 +42,9 @@ class PermissionBroker(private val context: Context) : PermissionGate {
         })
     }
 
+    /** True while MainActivity is resumed (an activity can be started directly, no background-launch limits). */
+    fun foreground(): Boolean = activity?.get()?.lifecycle?.currentState?.isAtLeast(Lifecycle.State.RESUMED) == true
+
     fun granted(permission: String): Boolean {
         if (permission == Perms.POST_NOTIFICATIONS && Build.VERSION.SDK_INT < 33) return true
         return ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
