@@ -75,6 +75,13 @@ class AgentController(
     private val audit: AuditSink = AuditSink { },
     private val maxSteps: Int = 12,
     private val toolTimeoutMs: Long = 60_000,
+    /**
+     * Messages the user sent while this run is in flight. Each step folds whatever is queued into
+     * this round's context instead of cancelling the in-flight tool call and restarting; anything
+     * still queued when the run ends (finished, stopped, error) is emitted too, so it is never lost.
+     * Null in tests / callers without a live composer.
+     */
+    private val pending: (() -> AgentEvent.UserMessage?)? = null,
 ) {
     /** Runs until the agent finishes. [events] is the conversation so far and is appended to in place. */
     suspend fun run(conversationId: String, system: String, events: MutableList<AgentEvent>, listener: AgentListener): AgentState {
@@ -83,12 +90,23 @@ class AgentController(
             sink.append(conversationId, e)
             listener.onEvent(e)
         }
+        /** Pulls queued user messages into this run (persisted + shown via [emit]); returns how many. */
+        suspend fun drainPending(): Int {
+            var n = 0
+            while (true) {
+                emit(pending?.invoke() ?: break)
+                n++
+            }
+            return n
+        }
         // Untrusted content already in the context (a page read earlier in this conversation) still taints the run.
         var tainted = events.any { it is AgentEvent.ToolObservation && it.tainted }
         val sensitive = LinkedHashSet<String>()
         events.forEach { e -> if (e is AgentEvent.ToolObservation && !e.isError && tools[e.tool]?.readsPrivate == true) sensitive += Taint.fragments(e.output) }
         listener.onState(AgentState.RUNNING)
+        try {
         for (step in 1..maxSteps) {
+            drainPending()
             var partialText = ""
             var partialReasoning = ""
             val turn = try {
@@ -110,6 +128,8 @@ class AgentController(
             }
             emit(AgentEvent.AssistantMessage(turn.text, turn.reasoning, turn.model, turn.toolCalls))
             if (turn.toolCalls.isEmpty()) {
+                // A message queued during this turn still gets answered in this run, not dropped.
+                if (drainPending() > 0) continue
                 listener.onState(AgentState.FINISHED)
                 return AgentState.FINISHED
             }
@@ -147,6 +167,11 @@ class AgentController(
         emit(AgentEvent.AssistantMessage("已经走了 $maxSteps 步还没完成，先停在这里。说「继续」我会接着做。"))
         listener.onState(AgentState.FINISHED)
         return AgentState.FINISHED
+        } finally {
+            // Queued messages must survive a stop / error / step budget: persist + show them so the
+            // next run picks them up. Runs under NonCancellable because this also covers cancellation.
+            kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { drainPending() }
+        }
     }
 
     private suspend fun execute(
@@ -157,10 +182,14 @@ class AgentController(
         emit: suspend (AgentEvent) -> Unit,
         listener: AgentListener,
     ): AgentEvent.ToolObservation {
-        val tool = tools[call.name] ?: return AgentEvent.ToolObservation(call.id, call.name, "没有这个工具：${call.name}", isError = true)
+        val tool = tools[call.name] ?: run {
+            audit.record(AuditRecord(conversationId, AuditKinds.ERROR, call.name, "", "没有这个工具：${call.name}", tainted = tainted))
+            return AgentEvent.ToolObservation(call.id, call.name, "没有这个工具：${call.name}", isError = true)
+        }
         val args = try {
             if (call.arguments.isBlank()) JSONObject() else JSONObject(call.arguments)
         } catch (e: Exception) {
+            audit.record(AuditRecord(conversationId, AuditKinds.ERROR, call.name, "", "参数不是合法 JSON：${call.arguments.take(200)}", tainted = tainted))
             return AgentEvent.ToolObservation(call.id, call.name, "参数不是合法 JSON：${call.arguments.take(200)}", isError = true)
         }
         val target = tool.target(args)

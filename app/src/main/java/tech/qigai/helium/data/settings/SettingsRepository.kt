@@ -133,7 +133,7 @@ class SettingsRepository(context: Context) {
     /** Merge a freshly fetched model list with the defaults (defaults first, so the 4 featured stay on top). */
     fun setOpenCodeModels(fetched: List<ModelOption>) {
         val merged = LinkedHashMap<String, ModelOption>()
-        ModelCatalog.openCodeDefaults.forEach { d -> merged[d.id] = fetched.firstOrNull { it.id == d.id } ?: d }
+        ModelCatalog.openCodeDefaults.forEach { d -> merged[d.id] = fetched.firstOrNull { it.id == d.id }?.copy(supportsVision = d.supportsVision) ?: d }
         fetched.forEach { merged.putIfAbsent(it.id, it) }
         prefs.edit().putString(K_OC_MODELS, encodeModels(merged.values.toList())).apply(); refresh()
     }
@@ -156,17 +156,18 @@ class SettingsRepository(context: Context) {
         return when (s.provider) {
             ProviderId.OPENCODE_GO -> {
                 val opt = s.openCodeModels.firstOrNull { it.id == s.openCodeModel }
-                // Unknown (hand-typed) ids default to the OpenAI-compatible route.
+                // Unknown (hand-typed) ids default to the OpenAI-compatible route, and to no vision:
+                // an unverified model must never be sent pixels it cannot see.
                 val api = opt?.api ?: WireApi.CHAT_COMPLETIONS
                 val base = if (api == WireApi.ANTHROPIC_MESSAGES) ModelCatalog.OPENCODE_ANTHROPIC_BASE else ModelCatalog.OPENCODE_OPENAI_BASE
                 val (url, key) = viaCloud(vault.get(V_OPENCODE), base, "https://opencode.ai/inference/go", "opencode-go")
-                LlmEndpoint(provider = s.provider, api = api, baseUrl = url, apiKey = key, model = s.openCodeModel)
+                LlmEndpoint(provider = s.provider, api = api, baseUrl = url, apiKey = key, model = s.openCodeModel, supportsVision = opt?.supportsVision ?: false)
             }
             ProviderId.GEMINI -> {
                 val (url, key) = viaCloud(vault.get(V_GEMINI), ModelCatalog.GEMINI_BASE, "https://generativelanguage.googleapis.com", "gemini")
-                LlmEndpoint(s.provider, WireApi.GEMINI, url, key, s.geminiModel)
+                LlmEndpoint(s.provider, WireApi.GEMINI, url, key, s.geminiModel, supportsVision = true)
             }
-            ProviderId.CUSTOM -> LlmEndpoint(s.provider, WireApi.CHAT_COMPLETIONS, s.customBaseUrl, vault.get(V_CUSTOM).orEmpty(), s.customModel)
+            ProviderId.CUSTOM -> LlmEndpoint(s.provider, WireApi.CHAT_COMPLETIONS, s.customBaseUrl, vault.get(V_CUSTOM).orEmpty(), s.customModel, supportsVision = false)
         }
     }
 
@@ -187,7 +188,7 @@ class SettingsRepository(context: Context) {
     }
 
     private fun encodeModels(list: List<ModelOption>): String = JSONArray().apply {
-        list.forEach { put(JSONObject().put("id", it.id).put("label", it.label).put("api", it.api.name)) }
+        list.forEach { put(JSONObject().put("id", it.id).put("label", it.label).put("api", it.api.name).put("supportsVision", it.supportsVision)) }
     }.toString()
 
     private fun decodeModels(raw: String): List<ModelOption> = runCatching {
@@ -195,7 +196,7 @@ class SettingsRepository(context: Context) {
         (0 until arr.length()).mapNotNull { i ->
             val o = arr.optJSONObject(i) ?: return@mapNotNull null
             val api = runCatching { WireApi.valueOf(o.optString("api")) }.getOrNull() ?: return@mapNotNull null
-            ModelOption(o.optString("id"), o.optString("label"), api)
+            ModelOption(o.optString("id"), o.optString("label"), api, o.optBoolean("supportsVision", false))
         }
     }.getOrDefault(emptyList())
 

@@ -51,9 +51,9 @@ class LlmClient(
         if (endpoint.apiKey.isBlank()) throw LlmException("还没有填写 ${endpoint.provider.title} 的 API Key。去「我的 → 模型与推理」填写后再试。")
         if (endpoint.model.isBlank()) throw LlmException("还没有选择模型。")
         val built = when (endpoint.api) {
-            WireApi.CHAT_COMPLETIONS -> WireFormat.chatCompletions(endpoint, system, messages, tools, images)
-            WireApi.ANTHROPIC_MESSAGES -> WireFormat.anthropic(endpoint, system, messages, tools, images)
-            WireApi.GEMINI -> WireFormat.gemini(endpoint, system, messages, tools, images)
+            WireApi.CHAT_COMPLETIONS -> WireFormat.chatCompletions(endpoint, system, messages, tools, images, endpoint.supportsVision)
+            WireApi.ANTHROPIC_MESSAGES -> WireFormat.anthropic(endpoint, system, messages, tools, images, endpoint.supportsVision)
+            WireApi.GEMINI -> WireFormat.gemini(endpoint, system, messages, tools, images, endpoint.supportsVision)
         }
         val request = built.newBuilder()
             .header("User-Agent", USER_AGENT)

@@ -14,7 +14,7 @@ class ImageWireFormatTest {
     private val loader = ImageLoader { ref -> if (ref == "missing.jpg") null else ImageData("image/jpeg", "B64-$ref") }
     private val history = listOf(ModelMessage(ModelMessage.Role.USER, "这是什么", images = listOf("a.jpg", "missing.jpg")))
 
-    private fun ep(api: WireApi) = LlmEndpoint(ProviderId.CUSTOM, api, "https://x.test/v1", "k", "m")
+    private fun ep(api: WireApi) = LlmEndpoint(ProviderId.CUSTOM, api, "https://x.test/v1", "k", "m", supportsVision = true)
     private fun body(r: okhttp3.Request) = JSONObject(Buffer().also { r.body!!.writeTo(it) }.readUtf8())
 
     @Test fun openAiUsesImageUrlDataUri() {

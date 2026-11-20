@@ -24,8 +24,19 @@ fun interface ImageLoader {
 internal object WireFormat {
     private val JSON = "application/json; charset=utf-8".toMediaType()
 
+    /**
+     * What a non-vision model is told instead of the pixels: the user must know the pictures never
+     * reached the model, and the model must know to ask for a text description (or a vision model).
+     */
+    fun noVisionNote(imageCount: Int) =
+        "（你发了 $imageCount 张图片，但当前模型不支持看图，我看不到图片内容。请用文字描述图片里有什么，或换一个支持视觉的模型，例如 Gemini。）"
+
     /** OpenAI-compatible user content: a plain string, or text + `image_url` data-URI parts. */
-    fun openAiUserContent(m: ModelMessage, images: ImageLoader): Any {
+    fun openAiUserContent(m: ModelMessage, images: ImageLoader, supportsVision: Boolean = false): Any {
+        if (!supportsVision && m.images.isNotEmpty()) {
+            val note = noVisionNote(m.images.size)
+            return if (m.content.isBlank()) note else "$note\n${m.content}"
+        }
         val loaded = m.images.mapNotNull(images::load)
         if (loaded.isEmpty()) return m.content
         val parts = JSONArray()
@@ -37,7 +48,11 @@ internal object WireFormat {
     }
 
     /** Anthropic user content: images first (as Anthropic recommends), then the text block. */
-    fun anthropicUserContent(m: ModelMessage, images: ImageLoader): Any {
+    fun anthropicUserContent(m: ModelMessage, images: ImageLoader, supportsVision: Boolean = false): Any {
+        if (!supportsVision && m.images.isNotEmpty()) {
+            val note = noVisionNote(m.images.size)
+            return if (m.content.isBlank()) note else "$note\n${m.content}"
+        }
         val loaded = m.images.mapNotNull(images::load)
         if (loaded.isEmpty()) return m.content
         val blocks = JSONArray()
@@ -53,8 +68,13 @@ internal object WireFormat {
     }
 
     /** Gemini user parts: `inlineData` images then the text (Gemini rejects an empty text part). */
-    fun geminiUserParts(m: ModelMessage, images: ImageLoader): JSONArray {
+    fun geminiUserParts(m: ModelMessage, images: ImageLoader, supportsVision: Boolean = false): JSONArray {
         val parts = JSONArray()
+        if (!supportsVision && m.images.isNotEmpty()) {
+            val note = noVisionNote(m.images.size)
+            parts.put(JSONObject().put("text", if (m.content.isBlank()) note else "$note\n${m.content}"))
+            return parts
+        }
         m.images.mapNotNull(images::load).forEach { img ->
             parts.put(JSONObject().put("inlineData", JSONObject().put("mimeType", img.mimeType).put("data", img.base64)))
         }
@@ -62,12 +82,12 @@ internal object WireFormat {
         return parts
     }
 
-    fun chatCompletions(e: LlmEndpoint, system: String?, messages: List<ModelMessage>, tools: List<ToolSpec>, images: ImageLoader = ImageLoader.NONE): Request {
+    fun chatCompletions(e: LlmEndpoint, system: String?, messages: List<ModelMessage>, tools: List<ToolSpec>, images: ImageLoader = ImageLoader.NONE, supportsVision: Boolean = e.supportsVision): Request {
         val arr = JSONArray()
         if (!system.isNullOrBlank()) arr.put(JSONObject().put("role", "system").put("content", system))
         messages.forEach { m ->
             when (m.role) {
-                ModelMessage.Role.USER -> arr.put(JSONObject().put("role", "user").put("content", openAiUserContent(m, images)))
+                ModelMessage.Role.USER -> arr.put(JSONObject().put("role", "user").put("content", openAiUserContent(m, images, supportsVision)))
                 ModelMessage.Role.ASSISTANT -> {
                     val o = JSONObject().put("role", "assistant")
                     if (m.toolCalls.isEmpty()) o.put("content", m.content) else {
@@ -98,7 +118,7 @@ internal object WireFormat {
             .build()
     }
 
-    fun anthropic(e: LlmEndpoint, system: String?, messages: List<ModelMessage>, tools: List<ToolSpec>, images: ImageLoader = ImageLoader.NONE): Request {
+    fun anthropic(e: LlmEndpoint, system: String?, messages: List<ModelMessage>, tools: List<ToolSpec>, images: ImageLoader = ImageLoader.NONE, supportsVision: Boolean = e.supportsVision): Request {
         val arr = JSONArray()
         var pendingResults: JSONArray? = null
         fun flushResults() {
@@ -107,7 +127,7 @@ internal object WireFormat {
         }
         messages.forEach { m ->
             when (m.role) {
-                ModelMessage.Role.USER -> { flushResults(); arr.put(JSONObject().put("role", "user").put("content", anthropicUserContent(m, images))) }
+                ModelMessage.Role.USER -> { flushResults(); arr.put(JSONObject().put("role", "user").put("content", anthropicUserContent(m, images, supportsVision))) }
                 ModelMessage.Role.ASSISTANT -> {
                     flushResults()
                     if (m.toolCalls.isEmpty()) arr.put(JSONObject().put("role", "assistant").put("content", m.content)) else {
@@ -142,7 +162,7 @@ internal object WireFormat {
             .build()
     }
 
-    fun gemini(e: LlmEndpoint, system: String?, messages: List<ModelMessage>, tools: List<ToolSpec>, images: ImageLoader = ImageLoader.NONE): Request {
+    fun gemini(e: LlmEndpoint, system: String?, messages: List<ModelMessage>, tools: List<ToolSpec>, images: ImageLoader = ImageLoader.NONE, supportsVision: Boolean = e.supportsVision): Request {
         val contents = JSONArray()
         var pending: JSONArray? = null
         fun flush() {
@@ -151,7 +171,7 @@ internal object WireFormat {
         }
         messages.forEach { m ->
             when (m.role) {
-                ModelMessage.Role.USER -> { flush(); contents.put(JSONObject().put("role", "user").put("parts", geminiUserParts(m, images))) }
+                ModelMessage.Role.USER -> { flush(); contents.put(JSONObject().put("role", "user").put("parts", geminiUserParts(m, images, supportsVision))) }
                 ModelMessage.Role.ASSISTANT -> {
                     flush()
                     val parts = JSONArray()

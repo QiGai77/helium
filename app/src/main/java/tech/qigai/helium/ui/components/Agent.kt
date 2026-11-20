@@ -113,8 +113,9 @@ fun FlowerAvatar(modifier: Modifier = Modifier, size: Dp = 24.dp, spinning: Bool
 }
 
 /**
- * Input capsule. States: idle (sparkle + mic), typing (send), running (继续说… + stop in the same spot).
- * Stopping never loses the draft.
+ * Input capsule. States: idle (sparkle + mic), typing (send), running (继续说… + send when there is
+ * text to queue + stop in the same spot). Stopping never loses the draft; sending while running queues
+ * the message into the current run instead of restarting it.
  */
 @Composable
 fun Composer(
@@ -172,7 +173,13 @@ fun Composer(
         }
         Spacer(Modifier.width(8.dp))
         when {
-            running -> CircleIcon(HeIcons.Stop, HeColors.Ink, Color.White, onStop, contentDescription = "停止")
+            running -> Row(verticalAlignment = Alignment.CenterVertically) {
+                if (sendEnabled && !listening) {
+                    CircleIcon(HeIcons.ArrowUp, HeColors.Accent, Color.White, onSend, contentDescription = "发送（排队）")
+                    Spacer(Modifier.width(8.dp))
+                }
+                CircleIcon(HeIcons.Stop, HeColors.Ink, Color.White, onStop, contentDescription = "停止")
+            }
             sendEnabled && !listening -> CircleIcon(HeIcons.ArrowUp, HeColors.Accent, Color.White, onSend, contentDescription = "发送")
             else -> Row(verticalAlignment = Alignment.CenterVertically) {
                 CircleIcon(HeIcons.Sparkle, Color.White, HeColors.Accent, onSkills, contentDescription = "技能")
