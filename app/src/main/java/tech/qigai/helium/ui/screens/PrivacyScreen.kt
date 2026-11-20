@@ -21,7 +21,7 @@ import tech.qigai.helium.ui.theme.HeShapes
 /**
  * M7 隐私说明页：数据都在本机、哪些请求发给谁。每一行都按代码实际调用列出
  * （模型端点见 data/llm/Models.kt 与 SettingsRepository，搜索见
- * agent/search/Search.kt，天气/订阅/自定义卡见 glance/*，抓取见
+ * agent/search/Search.kt，天气/订阅/自定义卡见 glance 包，抓取见
  * agent/tools/BuiltinTools.kt 的 WebFetchTool）。没有埋点、没有第三方崩溃
  * 上报；崩溃日志只写本机 files/crash-logs/。
  */
