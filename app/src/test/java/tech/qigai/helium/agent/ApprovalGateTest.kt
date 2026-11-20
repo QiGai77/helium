@@ -377,7 +377,7 @@ class ApprovalGateTest {
 
     @Test fun `memory save and forget keep their risks`() {
         val m = Mem()
-        assertEquals(Risk.MEDIUM, RiskPolicy.effective(MemorySaveTool(m), JSONObject()))
+        assertEquals(Risk.LOW, RiskPolicy.effective(MemorySaveTool(m), JSONObject())) // M4: propose-only, the candidate card is the confirmation
         assertEquals(Risk.HIGH, RiskPolicy.effective(MemoryForgetTool(m), JSONObject().put("id", 1)))
     }
 
