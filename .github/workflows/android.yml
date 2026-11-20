@@ -30,6 +30,47 @@ jobs:
       - name: Worker tests
         run: node --experimental-strip-types --test test/*.test.ts
 
+  # M7: 主流程 Compose UI 测试跑在模拟器上。GitHub-hosted ubuntu runner 带 KVM，
+  # reactivecircus/android-emulator-runner 是官方文档里最常用的方案，可行；
+  # 但本机沙盒无 KVM/无模拟器，未实跑过——首次跑若 flaky，先看本 job 的报告。
+  ui-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Run UI tests on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-options: -no-window -no-audio -no-boot-anim
+          disable-animations: true
+          script: ./gradlew --no-daemon connectedDebugAndroidTest
+
+      - name: Upload UI test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-test-reports-${{ github.sha }}
+          path: app/build/reports/androidTests/
+          if-no-files-found: warn
+
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
