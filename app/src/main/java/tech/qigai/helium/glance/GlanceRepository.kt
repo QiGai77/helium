@@ -208,10 +208,11 @@ class GlanceRepository(
     }
 
     /** Fetches every enabled source; returns how many new items arrived. */
-    suspend fun refreshFeeds(): Int {
+    suspend fun refreshFeeds(minAgeMs: Long = 0): Int {
         var fresh = 0
         val now = System.currentTimeMillis()
         for (s in dao.enabledSources()) {
+            if (minAgeMs > 0 && s.lastFetchedAt != null && s.lastError == null && now - s.lastFetchedAt < minAgeMs) continue
             runCatching {
                 val (body, u) = fetch(s.url)
                 val feed = if (s.kind == "WEB") pageSnapshot(Html.meta(body, u), s.url, now) else parser.parse(body, u, now)
@@ -360,7 +361,8 @@ class GlanceRepository(
             _busy.value = true
             try {
                 refreshWeather(force, useLocation = foreground)
-                refreshFeeds()
+                // Opening 速览 re-fetches a source at most every 15 min; the worker and the refresh button always do.
+                refreshFeeds(minAgeMs = if (!force && foreground) 15 * 60_000L else 0)
                 refreshCards(force)
                 runCatching { writeReasons() }
             } finally {
