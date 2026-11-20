@@ -2,7 +2,7 @@ name: Android CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, "feat/**"]
     tags: ["v*"]
   pull_request:
     branches: [main]
@@ -16,6 +16,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: cloud/worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Worker tests
+        run: node --experimental-strip-types --test test/*.test.ts
+
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -69,6 +83,14 @@ jobs:
           name: helium-apk-${{ github.sha }}
           path: dist/helium.apk
           if-no-files-found: error
+
+      - name: Upload Room schemas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: room-schemas-${{ github.sha }}
+          path: app/schemas/
+          if-no-files-found: warn
 
       - name: Upload test reports
         if: failure()

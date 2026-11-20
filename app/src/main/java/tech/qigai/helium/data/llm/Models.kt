@@ -55,6 +55,7 @@ data class ChatTurn(val role: Role, val content: String)
 
 sealed interface StreamEvent {
     data class Text(val delta: String) : StreamEvent
+    data class ToolCall(val call: tech.qigai.helium.agent.ToolCall) : StreamEvent
     data class Reasoning(val delta: String) : StreamEvent
     data class Done(val finishReason: String?) : StreamEvent
 }

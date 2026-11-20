@@ -1,5 +1,6 @@
 package tech.qigai.helium.ui.screens
 
+import tech.qigai.helium.data.model.AgentRun
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -40,16 +41,14 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import tech.qigai.helium.data.sample.Sources
-import tech.qigai.helium.data.sample.StepState
-import tech.qigai.helium.data.sample.TimelineStep
+import tech.qigai.helium.data.model.StepState
+import tech.qigai.helium.data.model.TimelineStep
 import tech.qigai.helium.ui.components.ButtonKind
 import tech.qigai.helium.ui.components.Dot
 import tech.qigai.helium.ui.components.HePillButton
 import tech.qigai.helium.ui.components.HeTag
 import tech.qigai.helium.ui.components.Illo
 import tech.qigai.helium.ui.components.RoundIconButton
-import tech.qigai.helium.ui.components.SampleBadge
 import tech.qigai.helium.ui.components.TagKind
 import tech.qigai.helium.ui.components.WhiteCard
 import tech.qigai.helium.ui.components.heCardShadow
@@ -62,23 +61,24 @@ import tech.qigai.helium.ui.theme.HeGradients
 import tech.qigai.helium.ui.theme.HeNum
 import tech.qigai.helium.ui.theme.HeShapes
 
-/** 03 任务时间线 — progress bar is the screen's single hero; nodes: done ● / running ■ / waiting ○ / future ▢. */
+/** 03 任务时间线 — the latest run of the current conversation, projected from its event stream. */
 @Composable
-fun TimelineScreen(onBack: () -> Unit, onOpenApproval: () -> Unit, toast: (String) -> Unit) {
-    val run = remember { Sources.runs.timeline() }
-    var paused by remember { mutableStateOf(false) }
+fun TimelineScreen(run: AgentRun?, running: Boolean, onStop: () -> Unit, onBack: () -> Unit, onOpenApproval: () -> Unit, toast: (String) -> Unit) {
     Column(Modifier.fillMaxSize()) {
+        if (run == null || run.steps.isEmpty()) {
+            SubTopBar(null, onBack)
+            EmptyState("还没有执行步骤", "Helium 调用工具时，每一步都会记录在这里。", Modifier.weight(1f))
+            return@Column
+        }
         SubTopBar(null, onBack, trailing = { RoundIconButton(HeIcons.More, { toast("更多操作即将支持") }) })
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(run.title, fontSize = 32.sp, fontWeight = FontWeight.Bold, color = HeColors.Ink)
-                Spacer(Modifier.width(10.dp))
-                SampleBadge()
+                Text(run.title, fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold, color = HeColors.Ink, maxLines = 2)
             }
             Spacer(Modifier.height(6.dp))
-            Text("${if (paused) "已暂停" else run.status} · 已完成 ${run.done}/${run.total}", fontSize = 15.sp, color = HeColors.Ink2)
+            Text("${run.status} · 已完成 ${run.done}/${run.total}", fontSize = 15.sp, color = HeColors.Ink2)
             Spacer(Modifier.height(20.dp))
-            ProgressBar(run.done.toFloat() / run.total)
+            ProgressBar(if (run.total == 0) 0f else run.done.toFloat() / run.total)
             Spacer(Modifier.height(24.dp))
             run.steps.forEachIndexed { i, s ->
                 StepRow(s, isFirst = i == 0, isLast = i == run.steps.lastIndex, prevDone = i > 0 && run.steps[i - 1].state == StepState.DONE, onOpenApproval = onOpenApproval)
@@ -96,8 +96,8 @@ fun TimelineScreen(onBack: () -> Unit, onOpenApproval: () -> Unit, toast: (Strin
                 .padding(8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            HePillButton(if (paused) "继续" else "暂停", { paused = !paused }, Modifier.weight(1f), ButtonKind.TONAL, HeIcons.Pause, HeButton.Medium)
-            HePillButton("查看详情", { toast("步骤截图与产物在 v1 接入浏览器代理后提供") }, Modifier.weight(1f), ButtonKind.OUTLINE, height = HeButton.Medium)
+            HePillButton("停止", onStop, Modifier.weight(1f), ButtonKind.TONAL, HeIcons.Stop, HeButton.Medium, enabled = running)
+            HePillButton("返回对话", onBack, Modifier.weight(1f), ButtonKind.OUTLINE, height = HeButton.Medium)
         }
     }
 }
@@ -198,6 +198,10 @@ private fun StepCard(s: TimelineStep, onOpenApproval: () -> Unit) {
                         s.chips.forEachIndexed { i, c -> HeTag(c, TagKind.NEUTRAL, dot = false, height = 28.dp, fontSize = 12) }
                     }
                 }
+                if (s.thumbs == 0 && !s.note.isNullOrBlank()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(s.note, fontSize = 12.sp, color = HeColors.Ink2, lineHeight = 17.sp, maxLines = 2)
+                }
                 if (s.thumbs > 0) {
                     Spacer(Modifier.height(10.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -218,4 +222,43 @@ private fun StepCard(s: TimelineStep, onOpenApproval: () -> Unit) {
             }
         }
     }
+}
+
+private val STEP_TIME = java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss")
+
+/** Steps of the latest run (everything after the last user message) as timeline rows. */
+fun timelineFrom(events: List<tech.qigai.helium.agent.AgentEvent>, running: Boolean, awaiting: Boolean): AgentRun? {
+    val start = events.indexOfLast { it is tech.qigai.helium.agent.AgentEvent.UserMessage }
+    if (start < 0) return null
+    val user = events[start] as tech.qigai.helium.agent.AgentEvent.UserMessage
+    val tail = events.subList(start + 1, events.size)
+    val calls = HashMap<String, tech.qigai.helium.agent.ToolCall>()
+    val decided = tail.filterIsInstance<tech.qigai.helium.agent.AgentEvent.ApprovalDecision>().associateBy { it.requestId }
+    val steps = ArrayList<TimelineStep>()
+    tail.forEach { e ->
+        when (e) {
+            is tech.qigai.helium.agent.AgentEvent.AssistantMessage -> e.toolCalls.forEach { calls[it.id] = it }
+            is tech.qigai.helium.agent.AgentEvent.ToolObservation -> steps += TimelineStep(
+                toolLabel(e.tool, calls[e.callId]?.arguments),
+                ChatViewModel.localTime(e.at).format(STEP_TIME),
+                StepState.DONE,
+                chips = listOfNotNull(if (e.durationMs >= 1000) "%.1f 秒".format(e.durationMs / 1000.0) else "${e.durationMs} 毫秒", if (e.isError) "失败" else null, if (e.tainted) "外部内容" else null),
+                note = e.output.take(80),
+            )
+            is tech.qigai.helium.agent.AgentEvent.ApprovalRequest -> {
+                val d = decided[e.requestId]
+                if (d == null && awaiting) steps += TimelineStep("等待你确认：${e.title}", null, StepState.WAITING)
+                else steps += TimelineStep(e.title, ChatViewModel.localTime(e.at).format(STEP_TIME), StepState.DONE, chips = listOf(if (d?.approved == true) "已批准" else if (d == null) "已失效" else "已拒绝"))
+            }
+            else -> Unit
+        }
+    }
+    if (running && !awaiting) steps += TimelineStep("思考下一步", null, StepState.RUNNING)
+    val done = steps.count { it.state == StepState.DONE }
+    val status = when {
+        awaiting -> "等你确认"
+        running -> "执行中"
+        else -> "已结束"
+    }
+    return AgentRun(user.text.lineSequence().first().take(30), status, done, steps.size, steps)
 }

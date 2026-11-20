@@ -13,6 +13,23 @@ import tech.qigai.helium.data.llm.ModelOption
 import tech.qigai.helium.data.llm.ProviderId
 import tech.qigai.helium.data.llm.WireApi
 
+/** Which backend `web_search` uses. Exa's public MCP is free and keyless, so it is the default and the fallback. */
+enum class SearchProviderId(val label: String) { EXA_MCP("Exa（免费）"), DEEPSEEK("DeepSeek") }
+
+/**
+ * Search + Helium Cloud (the Cloudflare Worker) settings. Secrets are only exposed as booleans. DeepSeek search goes
+ * through the Worker when one is configured (key stays server-side), otherwise straight to api.deepseek.com.
+ */
+data class SearchSettings(
+    val provider: SearchProviderId = SearchProviderId.EXA_MCP,
+    val cloudUrl: String = "",
+    val hasCloudToken: Boolean = false,
+    val hasDeepSeekKey: Boolean = false,
+) {
+    val cloudConfigured: Boolean get() = cloudUrl.isNotBlank() && hasCloudToken
+    val deepSeekReady: Boolean get() = cloudConfigured || hasDeepSeekKey
+}
+
 /** Snapshot of model settings. API keys are only exposed as "configured or not" — never rendered. */
 data class LlmSettings(
     val provider: ProviderId = ProviderId.OPENCODE_GO,
@@ -24,6 +41,8 @@ data class LlmSettings(
     val hasOpenCodeKey: Boolean = false,
     val hasGeminiKey: Boolean = false,
     val hasCustomKey: Boolean = false,
+    /** Helium Cloud is connected, so OpenCode Go / Gemini work with keys held on the Worker. */
+    val viaCloud: Boolean = false,
 ) {
     val activeModelLabel: String
         get() = when (provider) {
@@ -33,8 +52,8 @@ data class LlmSettings(
         }
 
     fun isConfigured(p: ProviderId): Boolean = when (p) {
-        ProviderId.OPENCODE_GO -> hasOpenCodeKey
-        ProviderId.GEMINI -> hasGeminiKey
+        ProviderId.OPENCODE_GO -> hasOpenCodeKey || viaCloud
+        ProviderId.GEMINI -> hasGeminiKey || viaCloud
         ProviderId.CUSTOM -> hasCustomKey && customBaseUrl.isNotBlank() && customModel.isNotBlank()
     }
 }
@@ -47,6 +66,39 @@ class SettingsRepository(context: Context) {
     val state: StateFlow<LlmSettings> = _state.asStateFlow()
 
     val vaultCount: Int get() = vault.count()
+
+    private val _search = MutableStateFlow(loadSearch())
+    val search: StateFlow<SearchSettings> = _search.asStateFlow()
+
+    private fun loadSearch() = SearchSettings(
+        provider = runCatching { SearchProviderId.valueOf(prefs.getString(K_SEARCH, null) ?: "") }.getOrDefault(SearchProviderId.EXA_MCP),
+        cloudUrl = prefs.getString(K_CLOUD_URL, null).orEmpty(),
+        hasCloudToken = vault.has(V_CLOUD_TOKEN),
+        hasDeepSeekKey = vault.has(V_DEEPSEEK),
+    )
+
+    fun setSearchProvider(p: SearchProviderId) {
+        prefs.edit().putString(K_SEARCH, p.name).apply(); _search.value = loadSearch()
+    }
+
+    fun setCloud(url: String, token: String?) {
+        prefs.edit().putString(K_CLOUD_URL, url.trim().trimEnd('/')).apply()
+        if (token != null) vault.put(V_CLOUD_TOKEN, token.trim().ifBlank { null })
+        _search.value = loadSearch(); refresh()
+    }
+
+    fun setDeepSeekKey(key: String?) {
+        vault.put(V_DEEPSEEK, key?.trim()?.ifBlank { null }); _search.value = loadSearch()
+    }
+
+    fun cloudToken(): String = vault.get(V_CLOUD_TOKEN).orEmpty()
+
+    /** Base URL + bearer for DeepSeek tool APIs: the Worker when configured, else DeepSeek directly. */
+    fun deepSeekToolRoute(): Pair<String, String> {
+        val s = _search.value
+        return if (s.cloudConfigured) s.cloudUrl to vault.get(V_CLOUD_TOKEN).orEmpty()
+        else DEEPSEEK_BASE to vault.get(V_DEEPSEEK).orEmpty()
+    }
 
     private fun load(): LlmSettings {
         val provider = runCatching { ProviderId.valueOf(prefs.getString(K_PROVIDER, null) ?: "") }.getOrDefault(ProviderId.OPENCODE_GO)
@@ -62,6 +114,7 @@ class SettingsRepository(context: Context) {
             hasOpenCodeKey = vault.has(V_OPENCODE),
             hasGeminiKey = vault.has(V_GEMINI),
             hasCustomKey = vault.has(V_CUSTOM),
+            viaCloud = !prefs.getString(K_CLOUD_URL, null).isNullOrBlank() && vault.has(V_CLOUD_TOKEN),
         )
     }
 
@@ -105,17 +158,26 @@ class SettingsRepository(context: Context) {
                 val opt = s.openCodeModels.firstOrNull { it.id == s.openCodeModel }
                 // Unknown (hand-typed) ids default to the OpenAI-compatible route.
                 val api = opt?.api ?: WireApi.CHAT_COMPLETIONS
-                LlmEndpoint(
-                    provider = s.provider,
-                    api = api,
-                    baseUrl = if (api == WireApi.ANTHROPIC_MESSAGES) ModelCatalog.OPENCODE_ANTHROPIC_BASE else ModelCatalog.OPENCODE_OPENAI_BASE,
-                    apiKey = vault.get(V_OPENCODE).orEmpty(),
-                    model = s.openCodeModel,
-                )
+                val base = if (api == WireApi.ANTHROPIC_MESSAGES) ModelCatalog.OPENCODE_ANTHROPIC_BASE else ModelCatalog.OPENCODE_OPENAI_BASE
+                val (url, key) = viaCloud(vault.get(V_OPENCODE), base, "https://opencode.ai/inference/go", "opencode-go")
+                LlmEndpoint(provider = s.provider, api = api, baseUrl = url, apiKey = key, model = s.openCodeModel)
             }
-            ProviderId.GEMINI -> LlmEndpoint(s.provider, WireApi.GEMINI, ModelCatalog.GEMINI_BASE, vault.get(V_GEMINI).orEmpty(), s.geminiModel)
+            ProviderId.GEMINI -> {
+                val (url, key) = viaCloud(vault.get(V_GEMINI), ModelCatalog.GEMINI_BASE, "https://generativelanguage.googleapis.com", "gemini")
+                LlmEndpoint(s.provider, WireApi.GEMINI, url, key, s.geminiModel)
+            }
             ProviderId.CUSTOM -> LlmEndpoint(s.provider, WireApi.CHAT_COMPLETIONS, s.customBaseUrl, vault.get(V_CUSTOM).orEmpty(), s.customModel)
         }
+    }
+
+    /**
+     * A key on the phone wins. Without one, and with Helium Cloud connected, the request goes to the Worker's
+     * `/llm/<provider>` route, which swaps the device token for the server-held key.
+     */
+    private fun viaCloud(localKey: String?, base: String, upstreamOrigin: String, route: String): Pair<String, String> {
+        val c = _search.value
+        if (!localKey.isNullOrBlank() || !c.cloudConfigured) return base to localKey.orEmpty()
+        return (c.cloudUrl + "/llm/" + route + base.removePrefix(upstreamOrigin)) to cloudToken()
     }
 
     private fun vaultName(p: ProviderId) = when (p) {
@@ -147,5 +209,10 @@ class SettingsRepository(context: Context) {
         const val V_OPENCODE = "key.opencode_go"
         const val V_GEMINI = "key.gemini"
         const val V_CUSTOM = "key.custom"
+        const val K_SEARCH = "search_provider"
+        const val K_CLOUD_URL = "cloud_url"
+        const val V_CLOUD_TOKEN = "key.cloud_token"
+        const val V_DEEPSEEK = "key.deepseek"
+        const val DEEPSEEK_BASE = "https://api.deepseek.com"
     }
 }

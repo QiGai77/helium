@@ -172,12 +172,6 @@ fun HeTag(
     }
 }
 
-/** 「示例」 marker for placeholder data. */
-@Composable
-fun SampleBadge(modifier: Modifier = Modifier, onHero: Boolean = false) {
-    HeTag("示例", if (onHero) TagKind.HERO else TagKind.NEUTRAL, modifier, dot = false, height = 20.dp, fontSize = 11)
-}
-
 /** Status dot ≤ 8dp. */
 @Composable
 fun Dot(color: Color, modifier: Modifier = Modifier, size: Dp = 8.dp) {

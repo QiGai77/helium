@@ -8,14 +8,15 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaType
 import tech.qigai.helium.BuildConfig
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import org.json.JSONArray
 import org.json.JSONObject
+import tech.qigai.helium.agent.ModelMessage
+import tech.qigai.helium.agent.ToolCall
+import tech.qigai.helium.agent.tools.ToolSpec
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
@@ -25,18 +26,34 @@ import java.util.concurrent.TimeUnit
  */
 class LlmClient(
     private val http: OkHttpClient = defaultHttp,
+    /** Loads image attachments for vision turns; the app passes its ImageStore. */
+    private val images: ImageLoader = ImageLoader.NONE,
 ) {
+    /** Plain chat without tools (kept for simple callers and the protocol tests). */
+    fun stream(endpoint: LlmEndpoint, system: String?, turns: List<ChatTurn>, sessionId: String): Flow<StreamEvent> =
+        stream(endpoint, system, turns.filter { it.role != Role.SYSTEM }.map {
+            ModelMessage(if (it.role == Role.ASSISTANT) ModelMessage.Role.ASSISTANT else ModelMessage.Role.USER, it.content)
+        }, sessionId, emptyList())
+
     /**
-     * Streams one reply. [sessionId] must stay stable for a whole conversation: OpenCode Go routes and caches
-     * prompts by the `x-opencode-session` header and rejects requests without it (HTTP 400 MissingSessionID).
+     * Streams one model turn, with optional tools. Tool calls are assembled from the stream and emitted as
+     * [StreamEvent.ToolCall] right before [StreamEvent.Done].
+     * [sessionId] must stay stable for a whole conversation: OpenCode Go routes and caches prompts by the
+     * `x-opencode-session` header and rejects requests without it (HTTP 400 MissingSessionID).
      */
-    fun stream(endpoint: LlmEndpoint, system: String?, turns: List<ChatTurn>, sessionId: String): Flow<StreamEvent> = flow {
+    fun stream(
+        endpoint: LlmEndpoint,
+        system: String?,
+        messages: List<ModelMessage>,
+        sessionId: String,
+        tools: List<ToolSpec>,
+    ): Flow<StreamEvent> = flow {
         if (endpoint.apiKey.isBlank()) throw LlmException("还没有填写 ${endpoint.provider.title} 的 API Key。去「我的 → 模型与推理」填写后再试。")
         if (endpoint.model.isBlank()) throw LlmException("还没有选择模型。")
         val built = when (endpoint.api) {
-            WireApi.CHAT_COMPLETIONS -> chatCompletionsRequest(endpoint, system, turns)
-            WireApi.ANTHROPIC_MESSAGES -> anthropicRequest(endpoint, system, turns)
-            WireApi.GEMINI -> geminiRequest(endpoint, system, turns)
+            WireApi.CHAT_COMPLETIONS -> WireFormat.chatCompletions(endpoint, system, messages, tools, images)
+            WireApi.ANTHROPIC_MESSAGES -> WireFormat.anthropic(endpoint, system, messages, tools, images)
+            WireApi.GEMINI -> WireFormat.gemini(endpoint, system, messages, tools, images)
         }
         val request = built.newBuilder()
             .header("User-Agent", USER_AGENT)
@@ -44,6 +61,7 @@ class LlmClient(
             .build()
         val call = http.newCall(request)
         val handle = currentCoroutineContext()[Job]?.invokeOnCompletion { call.cancel() }
+        val acc = ToolCallAccumulator()
         try {
             call.execute().use { response ->
                 if (!response.isSuccessful) throw httpError(response)
@@ -71,20 +89,21 @@ class LlmClient(
                         continue
                     }
                     val parsed = when (endpoint.api) {
-                        WireApi.CHAT_COMPLETIONS -> parseChatChunk(obj)
-                        WireApi.ANTHROPIC_MESSAGES -> parseAnthropicEvent(event ?: obj.optString("type"), obj)
-                        WireApi.GEMINI -> parseGeminiChunk(obj)
+                        WireApi.CHAT_COMPLETIONS -> parseChatChunk(obj, acc)
+                        WireApi.ANTHROPIC_MESSAGES -> parseAnthropicEvent(event ?: obj.optString("type"), obj, acc)
+                        WireApi.GEMINI -> parseGeminiChunk(obj, acc)
                     }
                     for (ev in parsed) {
                         if (ev is StreamEvent.Done) finish = ev.finishReason else emit(ev)
                     }
                     if (endpoint.api == WireApi.ANTHROPIC_MESSAGES && obj.optString("type") == "message_stop") break
                 }
+                acc.finish().forEach { emit(it) }
                 emit(StreamEvent.Done(finish))
             }
         } catch (e: IOException) {
             currentCoroutineContext().ensureActive()
-            throw LlmException("网络错误：${e.message ?: e.javaClass.simpleName}")
+            throw LlmException(networkMessage(e))
         } finally {
             handle?.dispose()
         }
@@ -111,72 +130,9 @@ class LlmClient(
         }
     }
 
-    // ---------------------------------------------------------------- requests
-
-    private fun chatCompletionsRequest(e: LlmEndpoint, system: String?, turns: List<ChatTurn>): Request {
-        val messages = JSONArray()
-        if (!system.isNullOrBlank()) messages.put(JSONObject().put("role", "system").put("content", system))
-        turns.forEach { t ->
-            messages.put(JSONObject().put("role", if (t.role == Role.ASSISTANT) "assistant" else if (t.role == Role.SYSTEM) "system" else "user").put("content", t.content))
-        }
-        val body = JSONObject()
-            .put("model", e.model)
-            .put("stream", true)
-            .put("messages", messages)
-        return Request.Builder()
-            .url(joinUrl(e.baseUrl, "chat/completions"))
-            .header("Authorization", "Bearer ${e.apiKey}")
-            .header("Accept", "text/event-stream")
-            .post(body.toString().toRequestBody(JSON))
-            .build()
-    }
-
-    private fun anthropicRequest(e: LlmEndpoint, system: String?, turns: List<ChatTurn>): Request {
-        val messages = JSONArray()
-        turns.filter { it.role != Role.SYSTEM }.forEach { t ->
-            messages.put(JSONObject().put("role", if (t.role == Role.ASSISTANT) "assistant" else "user").put("content", t.content))
-        }
-        val body = JSONObject()
-            .put("model", e.model)
-            .put("max_tokens", 8192)
-            .put("stream", true)
-            .put("messages", messages)
-        if (!system.isNullOrBlank()) body.put("system", system)
-        return Request.Builder()
-            .url(joinUrl(e.baseUrl, "messages"))
-            .header("x-api-key", e.apiKey)
-            .header("Authorization", "Bearer ${e.apiKey}")
-            .header("anthropic-version", "2023-06-01")
-            .header("Accept", "text/event-stream")
-            .post(body.toString().toRequestBody(JSON))
-            .build()
-    }
-
-    private fun geminiRequest(e: LlmEndpoint, system: String?, turns: List<ChatTurn>): Request {
-        val contents = JSONArray()
-        turns.filter { it.role != Role.SYSTEM }.forEach { t ->
-            contents.put(
-                JSONObject()
-                    .put("role", if (t.role == Role.ASSISTANT) "model" else "user")
-                    .put("parts", JSONArray().put(JSONObject().put("text", t.content))),
-            )
-        }
-        val body = JSONObject().put("contents", contents)
-        if (!system.isNullOrBlank()) {
-            body.put("systemInstruction", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", system))))
-        }
-        val model = e.model.removePrefix("models/")
-        return Request.Builder()
-            .url(joinUrl(e.baseUrl, "models/$model:streamGenerateContent?alt=sse"))
-            .header("x-goog-api-key", e.apiKey)
-            .header("Accept", "text/event-stream")
-            .post(body.toString().toRequestBody(JSON))
-            .build()
-    }
-
     // ---------------------------------------------------------------- parsers
 
-    private fun parseChatChunk(obj: JSONObject): List<StreamEvent> {
+    private fun parseChatChunk(obj: JSONObject, acc: ToolCallAccumulator): List<StreamEvent> {
         obj.optJSONObject("error")?.let { throw LlmException(it.optString("message").ifBlank { it.toString() }) }
         val out = ArrayList<StreamEvent>(2)
         val choices = obj.optJSONArray("choices") ?: return out
@@ -188,19 +144,43 @@ class LlmClient(
             if (!reasoning.isNullOrEmpty()) out += StreamEvent.Reasoning(reasoning)
             val content = delta.optStringOrNull("content")
             if (!content.isNullOrEmpty()) out += StreamEvent.Text(content)
+            val calls = delta.optJSONArray("tool_calls")
+            if (calls != null) {
+                for (i in 0 until calls.length()) {
+                    val c = calls.optJSONObject(i) ?: continue
+                    val fn = c.optJSONObject("function")
+                    acc.chunk(
+                        key = c.optInt("index", i).toString(),
+                        id = c.optStringOrNull("id"),
+                        name = fn?.optStringOrNull("name"),
+                        argsDelta = fn?.optStringOrNull("arguments"),
+                    )
+                }
+            }
         }
         val finish = choice.optStringOrNull("finish_reason")
         if (!finish.isNullOrEmpty()) out += StreamEvent.Done(finish)
         return out
     }
 
-    private fun parseAnthropicEvent(type: String, obj: JSONObject): List<StreamEvent> {
+    private fun parseAnthropicEvent(type: String, obj: JSONObject, acc: ToolCallAccumulator): List<StreamEvent> {
         return when (type) {
+            "content_block_start" -> {
+                val b = obj.optJSONObject("content_block")
+                if (b?.optString("type") == "tool_use") {
+                    acc.chunk(obj.optInt("index").toString(), b.optStringOrNull("id"), b.optStringOrNull("name"), null)
+                }
+                emptyList()
+            }
             "content_block_delta" -> {
                 val d = obj.optJSONObject("delta") ?: return emptyList()
                 when (d.optString("type")) {
                     "text_delta" -> listOf(StreamEvent.Text(d.optString("text")))
                     "thinking_delta" -> listOf(StreamEvent.Reasoning(d.optString("thinking")))
+                    "input_json_delta" -> {
+                        acc.chunk(obj.optInt("index").toString(), null, null, d.optString("partial_json"))
+                        emptyList()
+                    }
                     else -> emptyList()
                 }
             }
@@ -216,7 +196,7 @@ class LlmClient(
         }
     }
 
-    private fun parseGeminiChunk(obj: JSONObject): List<StreamEvent> {
+    private fun parseGeminiChunk(obj: JSONObject, acc: ToolCallAccumulator): List<StreamEvent> {
         obj.optJSONObject("error")?.let { throw LlmException(it.optString("message").ifBlank { it.toString() }) }
         val out = ArrayList<StreamEvent>(2)
         val cands = obj.optJSONArray("candidates") ?: return out
@@ -225,6 +205,16 @@ class LlmClient(
         if (parts != null) {
             for (i in 0 until parts.length()) {
                 val p = parts.optJSONObject(i) ?: continue
+                val fc = p.optJSONObject("functionCall")
+                if (fc != null) {
+                    acc.complete(
+                        id = fc.optStringOrNull("id"),
+                        name = fc.optString("name"),
+                        arguments = (fc.optJSONObject("args") ?: JSONObject()).toString(),
+                        signature = p.optStringOrNull("thoughtSignature"),
+                    )
+                    continue
+                }
                 val text = p.optStringOrNull("text") ?: continue
                 if (p.optBoolean("thought", false)) out += StreamEvent.Reasoning(text) else out += StreamEvent.Text(text)
             }
@@ -257,8 +247,6 @@ class LlmClient(
     }
 
     companion object {
-        private val JSON = "application/json; charset=utf-8".toMediaType()
-
         /** OpenCode Go asks clients to identify themselves with their own user agent. */
         val USER_AGENT = "Helium/${BuildConfig.VERSION_NAME} (Android; tech.qigai.helium)"
 
@@ -269,6 +257,14 @@ class LlmClient(
                 .writeTimeout(30, TimeUnit.SECONDS)
                 .retryOnConnectionFailure(true)
                 .build()
+        }
+
+        /** User-facing text for a transport failure; offline cases get a plain "no network" message. */
+        fun networkMessage(e: IOException): String = when (e) {
+            is java.net.UnknownHostException, is java.net.ConnectException, is java.net.NoRouteToHostException ->
+                "网络不可用：连不上服务器。检查网络后点「重试」，你的消息不会丢。"
+            is java.net.SocketTimeoutException -> "网络超时：服务器太久没有响应，请稍后重试。"
+            else -> "网络错误：${e.message ?: e.javaClass.simpleName}"
         }
 
         /** Joins base + path; tolerates a base that already ends with the path (e.g. a full `/chat/completions` URL). */
@@ -283,3 +279,25 @@ class LlmClient(
 
 private fun JSONObject.optStringOrNull(key: String): String? =
     if (!has(key) || isNull(key)) null else optString(key)
+
+/** Assembles streamed tool-call fragments (OpenAI `tool_calls[i]`, Anthropic `input_json_delta`) into whole calls. */
+internal class ToolCallAccumulator {
+    private class Part(var id: String?, var name: String?, val args: StringBuilder = StringBuilder(), var signature: String? = null)
+    private val parts = LinkedHashMap<String, Part>()
+    private var seq = 0
+
+    fun chunk(key: String, id: String?, name: String?, argsDelta: String?) {
+        val p = parts.getOrPut(key) { Part(null, null) }
+        if (!id.isNullOrEmpty()) p.id = id
+        if (!name.isNullOrEmpty()) p.name = name
+        if (!argsDelta.isNullOrEmpty()) p.args.append(argsDelta)
+    }
+
+    fun complete(id: String?, name: String, arguments: String, signature: String?) {
+        parts["g${seq++}"] = Part(id, name, StringBuilder(arguments), signature)
+    }
+
+    fun finish(): List<StreamEvent.ToolCall> = parts.values.filter { !it.name.isNullOrBlank() }.mapIndexed { i, p ->
+        StreamEvent.ToolCall(ToolCall(p.id?.takeIf { it.isNotBlank() } ?: "call_${System.nanoTime()}_$i", p.name!!, p.args.toString().ifBlank { "{}" }, p.signature))
+    }
+}

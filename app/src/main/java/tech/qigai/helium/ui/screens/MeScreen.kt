@@ -37,14 +37,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import tech.qigai.helium.BuildConfig
 import tech.qigai.helium.data.llm.ProviderId
-import tech.qigai.helium.data.sample.Sources
 import tech.qigai.helium.data.settings.LlmSettings
 import tech.qigai.helium.ui.components.ButtonKind
 import tech.qigai.helium.ui.components.GlassIcon
 import tech.qigai.helium.ui.components.HePillButton
 import tech.qigai.helium.ui.components.HeTag
 import tech.qigai.helium.ui.components.HeroSurface
-import tech.qigai.helium.ui.components.SampleBadge
 import tech.qigai.helium.ui.components.TagKind
 import tech.qigai.helium.ui.components.WhiteCard
 import tech.qigai.helium.ui.icons.HeIcons
@@ -60,6 +58,11 @@ fun MeScreen(
     onOpenModels: () -> Unit,
     onOpenMemory: () -> Unit,
     onOpenApproval: () -> Unit,
+    onOpenAudit: () -> Unit,
+    onOpenPermissions: () -> Unit,
+    memoryCount: Int,
+    auditCount: Int,
+    grantCount: Int,
     toast: (String) -> Unit,
 ) {
     var about by remember { mutableStateOf(false) }
@@ -81,35 +84,30 @@ fun MeScreen(
                     ) { Icon(HeIcons.Person, null, tint = Color.White, modifier = Modifier.size(32.dp)) }
                     Spacer(Modifier.width(16.dp))
                     Column(Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("林夏", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.width(8.dp))
-                            SampleBadge(onHero = true)
-                        }
-                        Text("linxia@example.com", color = Color.White.copy(alpha = 0.85f), fontSize = 13.sp)
+                        Text("本机", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                        Text("对话、记忆和授权只保存在这台手机", color = Color.White.copy(alpha = 0.85f), fontSize = 13.sp)
                         Spacer(Modifier.height(6.dp))
-                        HeTag("Helium Pro", TagKind.GLASS, dot = false, height = 26.dp, fontSize = 12)
+                        HeTag("v${BuildConfig.VERSION_NAME}", TagKind.GLASS, dot = false, height = 26.dp, fontSize = 12)
                     }
                 }
             }
             Group("账户") {
                 SettingRow(HeIcons.Person, "个人资料", "姓名 · 头像 · 邮箱", onClick = soon("个人资料"))
-                SettingRow(HeIcons.Link, "Google 账号", "连接 Gmail · 日历 · 云端硬盘（连接器，不用于模型登录）", trailingTag = "未连接", onClick = soon("Google 账号连接"))
-                SettingRow(HeIcons.Cpu, "模型与推理", providerLine, sub2 = "可选 Gemini API（需 API Key）· 自带 OpenAI 兼容", onClick = onOpenModels)
+                SettingRow(HeIcons.Link, "Google 账号", "连接 Gmail · 日历 · 云端硬盘", trailingTag = "未连接", onClick = soon("Google 账号连接"))
+                SettingRow(HeIcons.Cpu, "模型与推理", providerLine, sub2 = "支持 Gemini API 与 OpenAI 兼容接口", onClick = onOpenModels)
             }
             Group("能力") {
-                SettingRow(HeIcons.Plug, "连接器", value = "6 个", onClick = soon("连接器"))
-                SettingRow(HeIcons.Sparkle, "技能", value = "${Sources.memory.skills().size} 个", onClick = onOpenMemory)
-                SettingRow(HeIcons.Server, "MCP", value = "2 个服务器", onClick = soon("MCP"))
+                SettingRow(HeIcons.Plug, "连接器", value = "未连接", onClick = soon("连接器"))
+                SettingRow(HeIcons.Sparkle, "技能", value = "0 个", onClick = onOpenMemory)
+                SettingRow(HeIcons.Server, "MCP", value = "未添加", onClick = soon("MCP"))
             }
             Group("记忆与文件") {
-                SettingRow(HeIcons.Memory, "记忆", value = "${Sources.memory.memoryCount()} 条", onClick = onOpenMemory)
-                SettingRow(HeIcons.File, "系统文件", "偏好、规则与人设文档", onClick = soon("系统文件"))
-                SettingRow(HeIcons.Folder, "项目空间", value = "3 个", onClick = soon("项目空间"))
+                SettingRow(HeIcons.Memory, "记忆", value = "$memoryCount 条", onClick = onOpenMemory)
             }
             Group("安全") {
-                SettingRow(HeIcons.Shield, "审批规则", "付款、发消息前需你确认", onClick = onOpenApproval)
-                SettingRow(HeIcons.List, "权限与审计", "近 7 天 42 次操作（示例）", onClick = soon("权限与审计"))
+                SettingRow(HeIcons.Shield, "待你确认", "发送、删除、保存重要信息前先问你", onClick = onOpenApproval)
+                SettingRow(HeIcons.Lock, "权限", "按「工具 + 目标」的授权，逐条撤销", value = "$grantCount 项", onClick = onOpenPermissions)
+                SettingRow(HeIcons.List, "审计日志", "每次调用、审批和结果 · 可筛选、导出 JSON", value = "近 7 天 $auditCount 次", onClick = onOpenAudit)
                 SettingRow(HeIcons.Key, "凭据保险箱", value = "$vaultCount 项", onClick = onOpenModels)
             }
             Group("通用") {
@@ -118,8 +116,6 @@ fun MeScreen(
                 SettingRow(HeIcons.Globe, "语言", value = "简体中文", onClick = soon("语言"))
                 SettingRow(HeIcons.Info, "关于", value = "v${BuildConfig.VERSION_NAME}", onClick = { about = true })
             }
-            Spacer(Modifier.height(24.dp))
-            HePillButton("退出登录", { toast("v0.1 无账号体系，数据只保存在本机") }, Modifier.fillMaxWidth(), ButtonKind.OUTLINE)
             Spacer(Modifier.height(32.dp))
         }
     }
@@ -184,7 +180,7 @@ private fun AboutDialog(onDismiss: () -> Unit) {
         title = { Text("Helium v${BuildConfig.VERSION_NAME}") },
         text = {
             Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
-                Text("个人 AI Agent · MVP。除对话外，页面内容均为示例数据。\n\n开源许可：MIT。字体 Noto Sans SC 与 Google Sans Flex 采用 SIL Open Font License 1.1：", fontSize = 14.sp)
+                Text("个人 AI Agent。对话、记忆、授权与审计都保存在本机。\n\n开源许可：MIT。字体 Noto Sans SC 与 Google Sans Flex 采用 SIL Open Font License 1.1：", fontSize = 14.sp)
                 Spacer(Modifier.height(12.dp))
                 Text(licenses, fontSize = 11.sp, color = HeColors.Ink2, lineHeight = 15.sp)
             }

@@ -100,3 +100,21 @@ fun greeting(t: LocalTime = LocalTime.now()): String = when (t.hour) {
 }
 
 fun weekdayShort(index1to7: Int): String = WEEK[(index1to7 - 1).coerceIn(0, 6)]
+
+/** Shared empty state: nothing here yet, and what will put something here. */
+@Composable
+fun EmptyState(title: String, body: String, modifier: Modifier = Modifier, action: String? = null, onAction: () -> Unit = {}) {
+    androidx.compose.foundation.layout.Column(
+        modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 40.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+    ) {
+        Text(title, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = HeColors.Ink, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        androidx.compose.foundation.layout.Spacer(Modifier.height(8.dp))
+        Text(body, fontSize = 14.sp, lineHeight = 21.sp, color = HeColors.Ink2, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        if (action != null) {
+            androidx.compose.foundation.layout.Spacer(Modifier.height(20.dp))
+            tech.qigai.helium.ui.components.HePillButton(action, onAction, kind = tech.qigai.helium.ui.components.ButtonKind.TONAL, height = tech.qigai.helium.ui.theme.HeButton.Medium)
+        }
+    }
+}
