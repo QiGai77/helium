@@ -27,6 +27,7 @@ abstract class HeliumDatabase : RoomDatabase() {
     abstract fun audit(): AuditDao
     abstract fun approvals(): ApprovalDao
     abstract fun tasks(): TaskDao
+    abstract fun glance(): GlanceDao
 
     companion object {
         /**
@@ -57,7 +58,16 @@ abstract class HeliumDatabase : RoomDatabase() {
             }
         }
 
-        /** M6: 速览 tables. */
+        /** M6 速览: feed sources/items, custom cards and the weather cache, exactly as Room generates them. */
+        val GLANCE_V4_SQL = listOf(
+            "CREATE TABLE IF NOT EXISTS `feed_sources` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `kind` TEXT NOT NULL, `input` TEXT NOT NULL, `url` TEXT NOT NULL, `title` TEXT NOT NULL, `siteUrl` TEXT, `enabled` INTEGER NOT NULL, `addedAt` INTEGER NOT NULL, `lastFetchedAt` INTEGER, `lastError` TEXT)",
+            "CREATE TABLE IF NOT EXISTS `feed_items` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `sourceId` INTEGER NOT NULL, `guid` TEXT NOT NULL, `title` TEXT NOT NULL, `link` TEXT NOT NULL, `summary` TEXT NOT NULL, `publishedAt` INTEGER NOT NULL, `fetchedAt` INTEGER NOT NULL, `reason` TEXT)",
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_feed_items_sourceId_guid` ON `feed_items` (`sourceId`, `guid`)",
+            "CREATE INDEX IF NOT EXISTS `index_feed_items_publishedAt` ON `feed_items` (`publishedAt`)",
+            "CREATE TABLE IF NOT EXISTS `glance_cards` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `prompt` TEXT NOT NULL, `definition` TEXT NOT NULL, `intervalMinutes` INTEGER NOT NULL, `size` TEXT NOT NULL, `valuesJson` TEXT, `lastRefreshAt` INTEGER, `nextRefreshAt` INTEGER NOT NULL, `lastError` TEXT, `position` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+            "CREATE TABLE IF NOT EXISTS `weather_cache` (`id` INTEGER NOT NULL, `place` TEXT NOT NULL, `lat` REAL NOT NULL, `lon` REAL NOT NULL, `placeSource` TEXT NOT NULL, `json` TEXT NOT NULL, `fetchedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        )
+
         val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 GLANCE_V4_SQL.forEach { db.execSQL(it) }
