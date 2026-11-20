@@ -41,6 +41,10 @@ import tech.qigai.helium.HeliumApplication
 import tech.qigai.helium.ui.components.HeBottomNav
 import tech.qigai.helium.ui.components.NavTab
 import tech.qigai.helium.ui.components.rememberToast
+import tech.qigai.helium.ui.screens.BackupScreen
+import tech.qigai.helium.ui.screens.PrivacyScreen
+import tech.qigai.helium.data.backup.BackupManager
+import tech.qigai.helium.crash.CrashLogStore
 import tech.qigai.helium.ui.screens.ApprovalScreen
 import tech.qigai.helium.ui.screens.AuditScreen
 import tech.qigai.helium.ui.screens.PermissionsScreen
@@ -90,6 +94,8 @@ object Routes {
     const val TIMELINE = "timeline"
     const val AUDIT = "audit"
     const val PERMISSIONS = "permissions"
+    const val BACKUP = "backup"
+    const val PRIVACY = "privacy"
     const val TASK = "task/{id}"
     const val TASK_RUN = "taskrun/{runId}"
     fun task(id: String) = "task/$id"
@@ -276,11 +282,25 @@ fun HeliumNavHost(nav: NavHostController = rememberNavController()) {
                         onOpenApproval = { open(Routes.APPROVAL) },
                         onOpenAudit = { open(Routes.AUDIT) },
                         onOpenPermissions = { open(Routes.PERMISSIONS) },
+                        onOpenBackup = { open(Routes.BACKUP) },
+                        onOpenPrivacy = { open(Routes.PRIVACY) },
                         memoryCount = memories.size,
                         auditCount = auditWeek,
                         grantCount = grants.size,
                         toast = toast,
                     )
+                }
+                composable(Routes.BACKUP) {
+                    BackupScreen(
+                        onBack = { nav.popBackStack() },
+                        backup = remember { BackupManager(context.applicationContext, app.db, tech.qigai.helium.BuildConfig.VERSION_NAME) },
+                        crashes = remember { CrashLogStore(context.applicationContext) },
+                        onOpenModels = { open(Routes.MODELS) },
+                        toast = toast,
+                    )
+                }
+                composable(Routes.PRIVACY) {
+                    PrivacyScreen(onBack = { nav.popBackStack() })
                 }
                 composable(Routes.MODELS) {
                     ModelsScreen(settings = settings, repo = app.settings, onBack = { nav.popBackStack() }, toast = toast)

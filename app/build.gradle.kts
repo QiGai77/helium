@@ -118,4 +118,10 @@ dependencies {
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     testImplementation("org.json:json:20240303")
     testImplementation("net.sf.kxml:kxml2:2.3.0")
+
+    // M7: 主流程 Compose UI 测试（androidTest，跑在模拟器上，见 .github/workflows/android.yml 的 ui-test job）。
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
+    androidTestImplementation(composeBom)
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
 }

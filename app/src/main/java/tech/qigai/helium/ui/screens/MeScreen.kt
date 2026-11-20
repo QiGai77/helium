@@ -60,6 +60,8 @@ fun MeScreen(
     onOpenApproval: () -> Unit,
     onOpenAudit: () -> Unit,
     onOpenPermissions: () -> Unit,
+    onOpenBackup: () -> Unit = {},
+    onOpenPrivacy: () -> Unit = {},
     memoryCount: Int,
     auditCount: Int,
     grantCount: Int,
@@ -103,12 +105,14 @@ fun MeScreen(
             }
             Group("记忆与文件") {
                 SettingRow(HeIcons.Memory, "记忆", value = "$memoryCount 条", onClick = onOpenMemory)
+                SettingRow(HeIcons.File, "备份与恢复", "加密导出整库 · 崩溃日志查看与导出", onClick = onOpenBackup)
             }
             Group("安全") {
                 SettingRow(HeIcons.Shield, "待你确认", "发送、删除、保存重要信息前先问你", onClick = onOpenApproval)
                 SettingRow(HeIcons.Lock, "权限", "按「工具 + 目标」的授权，逐条撤销", value = "$grantCount 项", onClick = onOpenPermissions)
                 SettingRow(HeIcons.List, "审计日志", "每次调用、审批和结果 · 可筛选、导出 JSON", value = "近 7 天 $auditCount 次", onClick = onOpenAudit)
                 SettingRow(HeIcons.Key, "凭据保险箱", value = "$vaultCount 项", onClick = onOpenModels)
+                SettingRow(HeIcons.Info, "隐私说明", "数据都在本机 · 哪些请求发给哪个服务", onClick = onOpenPrivacy)
             }
             Group("通用") {
                 SettingRow(HeIcons.Bell, "通知", value = "开", onClick = soon("通知"))
