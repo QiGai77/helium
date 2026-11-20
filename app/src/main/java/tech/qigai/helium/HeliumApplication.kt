@@ -25,6 +25,7 @@ import tech.qigai.helium.data.db.RoomGrantStore
 import tech.qigai.helium.data.db.RoomMemoryStore
 import tech.qigai.helium.data.db.TaskRepository
 import tech.qigai.helium.data.llm.LlmClient
+import tech.qigai.helium.data.media.ImageStore
 import tech.qigai.helium.data.settings.SearchProviderId
 import tech.qigai.helium.data.settings.SettingsRepository
 
@@ -35,7 +36,8 @@ class HeliumApplication : Application() {
     val settings: SettingsRepository by lazy { SettingsRepository(this) }
     val db: HeliumDatabase by lazy { HeliumDatabase.open(this) }
 
-    val conversations by lazy { ConversationRepository(db) }
+    val images by lazy { ImageStore(this) }
+    val conversations by lazy { ConversationRepository(db, onImagesDropped = { images.delete(it) }) }
     val memories by lazy { RoomMemoryStore(db) }
     val grants by lazy { RoomGrantStore(db) }
     val audit by lazy { AuditRepository(db) }

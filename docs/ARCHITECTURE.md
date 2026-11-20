@@ -28,3 +28,14 @@ UI (Compose)  ──  ChatViewModel ──► AgentController ──► ModelRun
 - Backends (`agent/search/Search.kt`): **Exa public MCP** (default, free, keyless, JSON-RPC `tools/call web_search_exa`, the same backend opencode uses) and **DeepSeek Search API** (`/v1/tools/search`, $0.75 per 1,000 successful requests). A failure on the chosen backend falls back to Exa and says so in the observation.
 - Results are rendered as numbered sources; the model cites `[n]`, and the chat shows the turn's sources as chips under the answer (chat-demo style).
 - `cloud/worker` is Helium Cloud: a stateless Cloudflare Worker that injects server-held keys (DeepSeek, OpenCode Go, Gemini) and relays Exa. The app uses it when a Worker URL + device token are set; a key on the phone always wins for model calls.
+
+
+## Chat (M1)
+
+- **Storage.** A conversation is still one append-only event stream (`events`), so the chat, model context, timeline and audit stay projections of one source. DB v2 (`MIGRATION_1_2`, SQL in `data/db/ChatSchema.kt`) adds `conversations.titleState` (provisional / auto / user), `events.searchText`, the external-content FTS4 table `event_fts` with Room's sync triggers, and `pending_replies` (text streamed so far for the reply in flight). `ChatSchemaTest` checks the migration SQL against Room's exported `app/schemas/.../2.json` in CI.
+- **Search.** FTS4's `simple` tokenizer keeps a CJK run as one token, so `searchText` stores CJK one character per token and `FtsQuery` turns input into per-character phrases plus prefix words (RikkaHub's per-character idea, done with FTS4 phrases). Hits open the conversation scrolled to the message.
+- **Titles.** After the first finished exchange the active model is asked for a ≤12-character title (`TitlePrompt`, shape from RikkaHub's TitleSummary); a user rename is never overwritten.
+- **Interrupted turns.** Partial text is saved to `pending_replies` about once a second. On open, an unfinished tail (user message, tool step, approval) gets an "已中断" assistant event carrying that text, with 重试 (`Recovery.interruptedTail`).
+- **Images.** Camera (`TakePicture` + FileProvider) or Photo Picker → EXIF-rotated, longest edge ≤1568 px, JPEG in `files/attachments/`; events store the file name. `WireFormat` inlines them per protocol: OpenAI `image_url` data URI, Anthropic `image` base64 block, Gemini `inlineData`. Only the 3 most recent image turns keep pixels in context.
+- **Voice.** Hold the mic: system `SpeechRecognizer`, zh-CN, partial results shown live, final text appended to the draft (RECORD_AUDIO asked on first use).
+- **Offline.** Send checks connectivity first; offline keeps draft and attachments and shows a banner with 重试. A failure mid-request keeps the user message and shows the error card with 重试.

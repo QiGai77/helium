@@ -26,6 +26,8 @@ import java.util.concurrent.TimeUnit
  */
 class LlmClient(
     private val http: OkHttpClient = defaultHttp,
+    /** Loads image attachments for vision turns; the app passes its ImageStore. */
+    private val images: ImageLoader = ImageLoader.NONE,
 ) {
     /** Plain chat without tools (kept for simple callers and the protocol tests). */
     fun stream(endpoint: LlmEndpoint, system: String?, turns: List<ChatTurn>, sessionId: String): Flow<StreamEvent> =
@@ -49,9 +51,9 @@ class LlmClient(
         if (endpoint.apiKey.isBlank()) throw LlmException("还没有填写 ${endpoint.provider.title} 的 API Key。去「我的 → 模型与推理」填写后再试。")
         if (endpoint.model.isBlank()) throw LlmException("还没有选择模型。")
         val built = when (endpoint.api) {
-            WireApi.CHAT_COMPLETIONS -> WireFormat.chatCompletions(endpoint, system, messages, tools)
-            WireApi.ANTHROPIC_MESSAGES -> WireFormat.anthropic(endpoint, system, messages, tools)
-            WireApi.GEMINI -> WireFormat.gemini(endpoint, system, messages, tools)
+            WireApi.CHAT_COMPLETIONS -> WireFormat.chatCompletions(endpoint, system, messages, tools, images)
+            WireApi.ANTHROPIC_MESSAGES -> WireFormat.anthropic(endpoint, system, messages, tools, images)
+            WireApi.GEMINI -> WireFormat.gemini(endpoint, system, messages, tools, images)
         }
         val request = built.newBuilder()
             .header("User-Agent", USER_AGENT)
@@ -101,7 +103,7 @@ class LlmClient(
             }
         } catch (e: IOException) {
             currentCoroutineContext().ensureActive()
-            throw LlmException("网络错误：${e.message ?: e.javaClass.simpleName}")
+            throw LlmException(networkMessage(e))
         } finally {
             handle?.dispose()
         }
@@ -255,6 +257,14 @@ class LlmClient(
                 .writeTimeout(30, TimeUnit.SECONDS)
                 .retryOnConnectionFailure(true)
                 .build()
+        }
+
+        /** User-facing text for a transport failure; offline cases get a plain "no network" message. */
+        fun networkMessage(e: IOException): String = when (e) {
+            is java.net.UnknownHostException, is java.net.ConnectException, is java.net.NoRouteToHostException ->
+                "网络不可用：连不上服务器。检查网络后点「重试」，你的消息不会丢。"
+            is java.net.SocketTimeoutException -> "网络超时：服务器太久没有响应，请稍后重试。"
+            else -> "网络错误：${e.message ?: e.javaClass.simpleName}"
         }
 
         /** Joins base + path; tolerates a base that already ends with the path (e.g. a full `/chat/completions` URL). */

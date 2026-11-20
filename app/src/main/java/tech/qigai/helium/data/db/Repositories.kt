@@ -1,5 +1,6 @@
 package tech.qigai.helium.data.db
 
+import androidx.room.withTransaction
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -14,11 +15,31 @@ import tech.qigai.helium.agent.GrantStore
 import tech.qigai.helium.agent.covers
 import tech.qigai.helium.agent.tools.MemoryRecord
 import tech.qigai.helium.agent.tools.MemoryStore
+import tech.qigai.helium.chat.FtsQuery
+import tech.qigai.helium.chat.PendingReply
+import tech.qigai.helium.chat.SearchText
+import tech.qigai.helium.chat.Snippet
+import tech.qigai.helium.chat.TitlePrompt
 import java.util.concurrent.ConcurrentHashMap
 
-class ConversationRepository(private val db: HeliumDatabase) : EventSink {
+/** One search hit: the message, where it lives, and a one-line snippet around the keyword. */
+data class MessageHit(
+    val conversationId: String,
+    val conversationTitle: String,
+    val eventId: Long,
+    val at: Long,
+    val fromUser: Boolean,
+    val snippet: String,
+)
+
+class ConversationRepository(
+    private val db: HeliumDatabase,
+    /** Called with the attachment refs of a deleted conversation so their files can be removed. */
+    private val onImagesDropped: (List<String>) -> Unit = {},
+) : EventSink {
     fun observeAll(): Flow<List<ConversationEntity>> = db.conversations().observeAll()
     suspend fun latest() = db.conversations().latest()
+    suspend fun get(id: String) = db.conversations().get(id)
 
     suspend fun load(conversationId: String): List<AgentEvent> =
         db.events().forConversation(conversationId).mapNotNull { EventCodec.decode(it.kind, it.json) }
@@ -27,24 +48,72 @@ class ConversationRepository(private val db: HeliumDatabase) : EventSink {
         db.events().observe(conversationId).map { rows -> rows.mapNotNull { EventCodec.decode(it.kind, it.json) } }
 
     override suspend fun append(conversationId: String, event: AgentEvent) {
-        db.events().insert(EventEntity(conversationId = conversationId, kind = EventCodec.kind(event), json = EventCodec.encode(event), at = event.at))
-        val existing = db.conversations().get(conversationId)
-        val title = existing?.title ?: (event as? AgentEvent.UserMessage)?.text?.let(::titleFrom) ?: "新对话"
-        db.conversations().upsert(ConversationEntity(conversationId, title, existing?.createdAt ?: event.at, event.at))
+        db.withTransaction {
+            db.events().insert(
+                EventEntity(
+                    conversationId = conversationId, kind = EventCodec.kind(event), json = EventCodec.encode(event),
+                    at = event.at, searchText = SearchText.forEvent(event),
+                ),
+            )
+            val existing = db.conversations().get(conversationId)
+            if (existing == null) {
+                val user = event as? AgentEvent.UserMessage
+                val title = user?.let { TitlePrompt.provisional(it.text, it.images.isNotEmpty()) } ?: "新对话"
+                db.conversations().upsert(ConversationEntity(conversationId, title, event.at, event.at, TitleState.PROVISIONAL))
+            } else {
+                db.conversations().touch(conversationId, event.at)
+            }
+        }
     }
 
     suspend fun deleteAfter(conversationId: String, at: Long) = db.events().deleteAfter(conversationId, at)
 
+    /** Drops [at] and everything after it (edit-and-resend replaces that user message). */
+    suspend fun deleteFrom(conversationId: String, at: Long) = db.events().deleteFrom(conversationId, at)
+
     suspend fun delete(conversationId: String) {
-        db.events().deleteConversation(conversationId)
-        db.conversations().delete(conversationId)
+        val images = load(conversationId).filterIsInstance<AgentEvent.UserMessage>().flatMap { it.images }
+        db.withTransaction {
+            db.events().deleteConversation(conversationId)
+            db.pending().delete(conversationId)
+            db.conversations().delete(conversationId)
+        }
+        if (images.isNotEmpty()) onImagesDropped(images)
     }
 
-    suspend fun rename(conversationId: String, title: String) = db.conversations().rename(conversationId, title.trim().take(40))
+    /** A title the user typed; auto-titling never overrides it. */
+    suspend fun rename(conversationId: String, title: String) {
+        val t = title.trim().take(40)
+        if (t.isNotEmpty()) db.conversations().setTitle(conversationId, t, TitleState.USER)
+    }
 
-    suspend fun search(q: String) = db.events().searchConversations(q)
+    /** Model-generated title; only replaces a provisional one. */
+    suspend fun setAutoTitle(conversationId: String, title: String) {
+        val c = db.conversations().get(conversationId) ?: return
+        if (c.titleState == TitleState.PROVISIONAL) db.conversations().setTitle(conversationId, title, TitleState.AUTO)
+    }
 
-    private fun titleFrom(text: String) = text.lineSequence().first().trim().take(24).ifBlank { "新对话" }
+    suspend fun search(query: String, limit: Int = 60): List<MessageHit> {
+        val match = FtsQuery.build(query) ?: return emptyList()
+        val rows = try {
+            db.events().search(match, limit)
+        } catch (e: Exception) {
+            emptyList() // A malformed MATCH can't come out of FtsQuery, but never crash the search box.
+        }
+        return rows.map { r ->
+            val text = (EventCodec.decode(r.kind, r.json) as? AgentEvent.UserMessage)?.text
+                ?: (EventCodec.decode(r.kind, r.json) as? AgentEvent.AssistantMessage)?.text.orEmpty()
+            MessageHit(r.conversationId, r.title, r.eventId, r.at, r.kind == "user", Snippet.around(text, query))
+        }
+    }
+
+    suspend fun savePending(conversationId: String, text: String, reasoning: String) =
+        db.pending().upsert(PendingReplyEntity(conversationId, text, reasoning, System.currentTimeMillis()))
+
+    suspend fun pending(conversationId: String): PendingReply? =
+        db.pending().get(conversationId)?.let { PendingReply(it.text, it.reasoning) }
+
+    suspend fun clearPending(conversationId: String) = db.pending().delete(conversationId)
 }
 
 class RoomGrantStore(private val db: HeliumDatabase) : GrantStore {

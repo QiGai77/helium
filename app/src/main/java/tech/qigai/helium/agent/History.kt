@@ -8,17 +8,23 @@ data class ModelMessage(
     val toolCalls: List<ToolCall> = emptyList(),
     val toolCallId: String? = null,
     val toolName: String? = null,
+    /** Image attachment refs on a user turn; the wire format loads and inlines them per protocol. */
+    val images: List<String> = emptyList(),
 ) {
     enum class Role { USER, ASSISTANT, TOOL }
 }
 
 object History {
+    /** Only the most recent image-bearing user turns keep their pixels; older ones become a text note. */
+    const val MAX_IMAGE_TURNS = 3
+
     /**
      * Projects the event stream into model context. Failed turns are dropped, every tool call gets exactly one
      * result (a missing one becomes "cancelled", which OpenAI-style APIs require), and tainted output is fenced so
      * the model treats it as evidence, not instructions.
      */
-    fun toModel(events: List<AgentEvent>): List<ModelMessage> {
+    fun toModel(events: List<AgentEvent>, maxImageTurns: Int = MAX_IMAGE_TURNS): List<ModelMessage> {
+        val imageTurns = events.filterIsInstance<AgentEvent.UserMessage>().filter { it.images.isNotEmpty() }.takeLast(maxImageTurns).toSet()
         val out = ArrayList<ModelMessage>()
         var open = LinkedHashMap<String, ToolCall>()
         fun closeOpen() {
@@ -27,7 +33,14 @@ object History {
         }
         for (e in events) {
             when (e) {
-                is AgentEvent.UserMessage -> { closeOpen(); out += ModelMessage(ModelMessage.Role.USER, e.text) }
+                is AgentEvent.UserMessage -> {
+                    closeOpen()
+                    out += when {
+                        e.images.isEmpty() -> ModelMessage(ModelMessage.Role.USER, e.text)
+                        e in imageTurns -> ModelMessage(ModelMessage.Role.USER, e.text, images = e.images)
+                        else -> ModelMessage(ModelMessage.Role.USER, "（此处用户发过 ${e.images.size} 张图片，已不在上下文中）\n${e.text}".trim())
+                    }
+                }
                 is AgentEvent.AssistantMessage -> {
                     closeOpen()
                     if (e.error != null && e.text.isBlank() && e.toolCalls.isEmpty()) continue

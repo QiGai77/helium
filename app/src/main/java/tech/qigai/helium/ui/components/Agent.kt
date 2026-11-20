@@ -5,6 +5,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,6 +38,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -125,8 +128,15 @@ fun Composer(
     onAttach: () -> Unit = {},
     onSkills: () -> Unit = {},
     onMic: () -> Unit = {},
+    /** Send is offered when there is text, or when [sendEnabled] says so (e.g. an image is attached). */
+    sendEnabled: Boolean = value.isNotBlank(),
+    /** Hold-to-talk: called with true on press and false on release. Overrides [onMic] when set. */
+    onMicHold: ((Boolean) -> Unit)? = null,
+    listening: Boolean = false,
 ) {
     val shape = RoundedCornerShape(28.dp)
+    // Stable across recompositions so a hold in progress isn't restarted when the listening state changes.
+    val hold = rememberUpdatedState(onMicHold)
     val strokeAlpha = when {
         running -> 0.55f
         value.isNotEmpty() -> 0.45f
@@ -148,7 +158,7 @@ fun Composer(
         Spacer(Modifier.width(12.dp))
         Box(Modifier.weight(1f).padding(vertical = 8.dp), contentAlignment = Alignment.CenterStart) {
             if (value.isEmpty()) {
-                Text(if (running) "继续说…" else placeholder, color = HeColors.Ink2, fontSize = 16.sp)
+                Text(if (listening) "正在听，松开结束…" else if (running) "继续说…" else placeholder, color = if (listening) HeColors.Accent else HeColors.Ink2, fontSize = 16.sp)
             }
             BasicTextField(
                 value = value,
@@ -163,11 +173,33 @@ fun Composer(
         Spacer(Modifier.width(8.dp))
         when {
             running -> CircleIcon(HeIcons.Stop, HeColors.Ink, Color.White, onStop, contentDescription = "停止")
-            value.isNotBlank() -> CircleIcon(HeIcons.ArrowUp, HeColors.Accent, Color.White, onSend, contentDescription = "发送")
+            sendEnabled && !listening -> CircleIcon(HeIcons.ArrowUp, HeColors.Accent, Color.White, onSend, contentDescription = "发送")
             else -> Row(verticalAlignment = Alignment.CenterVertically) {
                 CircleIcon(HeIcons.Sparkle, Color.White, HeColors.Accent, onSkills, contentDescription = "技能")
                 Spacer(Modifier.width(8.dp))
-                CircleIcon(HeIcons.Mic, HeColors.Ink, Color.White, onMic, contentDescription = "语音")
+                if (onMicHold != null) {
+                    Box(
+                        Modifier
+                            .size(if (listening) 48.dp else 40.dp)
+                            .clip(CircleShape)
+                            .background(if (listening) HeColors.Accent else HeColors.Ink)
+                            .pointerInput(Unit) {
+                                detectTapGestures(onPress = {
+                                    hold.value?.invoke(true)
+                                    try {
+                                        tryAwaitRelease()
+                                    } finally {
+                                        hold.value?.invoke(false)
+                                    }
+                                })
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(HeIcons.Mic, "按住说话", tint = Color.White, modifier = Modifier.size(22.dp))
+                    }
+                } else {
+                    CircleIcon(HeIcons.Mic, HeColors.Ink, Color.White, onMic, contentDescription = "语音")
+                }
             }
         }
     }

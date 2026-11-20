@@ -51,6 +51,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
+import tech.qigai.helium.ui.screens.ChatInputBar
 import tech.qigai.helium.ui.screens.ChatScreen
 import tech.qigai.helium.ui.screens.ChatViewModel
 import tech.qigai.helium.ui.screens.GlanceScreen
@@ -131,11 +132,17 @@ fun HeliumNavHost(nav: NavHostController = rememberNavController()) {
             ) {
                 composable(Routes.HOME) {
                     HomeScreen(
-                        draft = chatVm.draft.value,
-                        onDraftChange = { chatVm.draft.value = it },
-                        onSend = {
-                            chatVm.send()
-                            open(Routes.CHAT)
+                        inputBar = { m ->
+                            ChatInputBar(
+                                vm = chatVm,
+                                onSend = {
+                                    chatVm.send()
+                                    if (chatVm.sendError.value == null) open(Routes.CHAT)
+                                },
+                                toast = toast,
+                                placeholder = "让 Helium 帮你…",
+                                modifier = m,
+                            )
                         },
                         agentRunning = chatVm.running.value,
                         pending = pending,

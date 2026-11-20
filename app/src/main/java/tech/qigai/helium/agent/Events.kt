@@ -33,7 +33,12 @@ data class ToolCall(
 sealed interface AgentEvent {
     val at: Long
 
-    data class UserMessage(val text: String, override val at: Long = now()) : AgentEvent
+    data class UserMessage(
+        val text: String,
+        override val at: Long = now(),
+        /** Attachment refs (file names under the app's attachments dir), sent to vision models. */
+        val images: List<String> = emptyList(),
+    ) : AgentEvent
 
     data class AssistantMessage(
         val text: String,
@@ -43,6 +48,8 @@ sealed interface AgentEvent {
         val stopped: Boolean = false,
         val error: String? = null,
         override val at: Long = now(),
+        /** The process died while this turn was streaming (marked "已中断" on reopen). */
+        val interrupted: Boolean = false,
     ) : AgentEvent
 
     data class ToolObservation(
@@ -92,9 +99,13 @@ object EventCodec {
     fun encode(e: AgentEvent): String {
         val o = JSONObject().put("at", e.at)
         when (e) {
-            is AgentEvent.UserMessage -> o.put("text", e.text)
+            is AgentEvent.UserMessage -> {
+                o.put("text", e.text)
+                if (e.images.isNotEmpty()) o.put("images", JSONArray(e.images))
+            }
             is AgentEvent.AssistantMessage -> {
                 o.put("text", e.text).put("reasoning", e.reasoning).put("stopped", e.stopped)
+                if (e.interrupted) o.put("interrupted", true)
                 e.model?.let { o.put("model", it) }
                 e.error?.let { o.put("error", it) }
                 val calls = JSONArray()
@@ -123,7 +134,10 @@ object EventCodec {
         val o = try { JSONObject(json) } catch (e: Exception) { return null }
         val at = o.optLong("at", 0L)
         return when (kind) {
-            "user" -> AgentEvent.UserMessage(o.optString("text"), at)
+            "user" -> {
+                val imgs = o.optJSONArray("images") ?: JSONArray()
+                AgentEvent.UserMessage(o.optString("text"), at, (0 until imgs.length()).map { imgs.optString(it) }.filter { it.isNotBlank() })
+            }
             "assistant" -> {
                 val arr = o.optJSONArray("toolCalls") ?: JSONArray()
                 val calls = (0 until arr.length()).mapNotNull { i ->
@@ -132,7 +146,7 @@ object EventCodec {
                 }
                 AgentEvent.AssistantMessage(
                     o.optString("text"), o.optString("reasoning"), o.optStr("model"), calls,
-                    o.optBoolean("stopped"), o.optStr("error"), at,
+                    o.optBoolean("stopped"), o.optStr("error"), at, o.optBoolean("interrupted"),
                 )
             }
             "observation" -> AgentEvent.ToolObservation(

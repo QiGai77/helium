@@ -1,6 +1,8 @@
 package tech.qigai.helium.data.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.Fts4
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
@@ -10,7 +12,15 @@ data class ConversationEntity(
     val title: String,
     val createdAt: Long,
     val updatedAt: Long,
+    /** [TitleState]: 0 provisional (first line of the first message), 1 model-generated, 2 set by the user. */
+    @ColumnInfo(defaultValue = "0") val titleState: Int = TitleState.PROVISIONAL,
 )
+
+object TitleState {
+    const val PROVISIONAL = 0
+    const val AUTO = 1
+    const val USER = 2
+}
 
 /** One row per [tech.qigai.helium.agent.AgentEvent]; `json` is [tech.qigai.helium.agent.EventCodec] output. */
 @Entity(tableName = "events", indices = [Index("conversationId"), Index("kind")])
@@ -20,6 +30,22 @@ data class EventEntity(
     val kind: String,
     val json: String,
     val at: Long,
+    /** [tech.qigai.helium.chat.SearchText] form of the message text (CJK split per character); indexed by [EventFts]. */
+    @ColumnInfo(defaultValue = "''") val searchText: String = "",
+)
+
+/** External-content FTS4 index over `events.searchText`; Room keeps it in sync with triggers. */
+@Fts4(contentEntity = EventEntity::class)
+@Entity(tableName = "event_fts")
+data class EventFts(val searchText: String)
+
+/** Text streamed so far for the reply in flight; survives a killed process so the turn can show "已中断". */
+@Entity(tableName = "pending_replies")
+data class PendingReplyEntity(
+    @PrimaryKey val conversationId: String,
+    val text: String,
+    val reasoning: String,
+    val updatedAt: Long,
 )
 
 @Entity(tableName = "memories")

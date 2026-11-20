@@ -6,8 +6,13 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import android.net.Uri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -19,10 +24,17 @@ import tech.qigai.helium.agent.AgentEvent
 import tech.qigai.helium.agent.AgentListener
 import tech.qigai.helium.agent.AgentState
 import tech.qigai.helium.agent.GrantScope
+import tech.qigai.helium.chat.Recovery
+import tech.qigai.helium.chat.TitlePrompt
 import tech.qigai.helium.data.db.ConversationEntity
+import tech.qigai.helium.data.db.MessageHit
+import tech.qigai.helium.data.db.TitleState
 import tech.qigai.helium.data.llm.AgentModelRunner
+import tech.qigai.helium.data.llm.ChatTurn
 import tech.qigai.helium.data.llm.LlmClient
 import tech.qigai.helium.data.llm.Role
+import tech.qigai.helium.data.llm.StreamEvent
+import tech.qigai.helium.data.media.Connectivity
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -42,6 +54,7 @@ data class ChatMessage(
     val stopped: Boolean = false,
     val model: String? = null,
     val at: LocalDateTime = LocalDateTime.now(),
+    val interrupted: Boolean = false,
 )
 
 /**
@@ -50,7 +63,7 @@ data class ChatMessage(
  */
 class ChatViewModel(app: Application) : AndroidViewModel(app) {
     private val h = app as HeliumApplication
-    private val client = LlmClient()
+    private val client = LlmClient(images = h.images)
 
     val events = mutableStateListOf<AgentEvent>()
     val streamingText = mutableStateOf("")
@@ -59,6 +72,22 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     val draft = mutableStateOf("")
     val conversationId = mutableStateOf(UUID.randomUUID().toString())
 
+    /** Images attached to the draft (attachment refs, already downscaled). */
+    val attachments = mutableStateListOf<String>()
+    val importing = mutableStateOf(false)
+
+    /** `at` of the user message being edited; the next send replaces it and everything after it. */
+    val editingAt = mutableStateOf<Long?>(null)
+
+    /** Shown above the composer when a send could not start (offline); the draft is untouched. */
+    val sendError = mutableStateOf<String?>(null)
+
+    /** `at` of the message a search hit wants on screen; the chat scrolls there instead of to the bottom. */
+    val focusAt = mutableStateOf<Long?>(null)
+
+    val searchHits = mutableStateOf<List<MessageHit>>(emptyList())
+    val searching = mutableStateOf(false)
+
     /** True while the loop runs or waits on the user. */
     val running = derivedStateOf { state.value == AgentState.RUNNING || state.value == AgentState.AWAITING_APPROVAL }
 
@@ -66,6 +95,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         h.conversations.observeAll().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private var job: Job? = null
+    private var searchJob: Job? = null
 
     private val controller = AgentController(
         model = AgentModelRunner(client, endpoint = { withContext(Dispatchers.IO) { h.settings.activeEndpoint() } }, sessionId = { conversationId.value }),
@@ -82,15 +112,33 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Sends the draft (text and/or images). Offline, nothing is consumed: the draft and attachments stay and
+     * [sendError] offers a one-tap retry. When editing, the edited message and everything after it is replaced.
+     */
     fun send(text: String = draft.value) {
         val prompt = text.trim()
-        if (prompt.isEmpty()) return
-        if (running.value) stop()
+        val images = attachments.toList()
+        if (prompt.isEmpty() && images.isEmpty()) return
+        if (!Connectivity.online(h)) {
+            sendError.value = "没有网络连接，消息还没发出。草稿已保留，联网后点「重试」。"
+            return
+        }
+        sendError.value = null
         draft.value = ""
-        val cid = conversationId.value
-        val user = AgentEvent.UserMessage(prompt)
-        events += user
+        attachments.clear()
+        val editAt = editingAt.value
+        editingAt.value = null
+        focusAt.value = null
         viewModelScope.launch {
+            job?.cancelAndJoin()
+            val cid = conversationId.value
+            if (editAt != null) {
+                h.conversations.deleteFrom(cid, editAt)
+                events.removeAll { it.at >= editAt }
+            }
+            val user = AgentEvent.UserMessage(prompt, images = images)
+            events += user
             h.conversations.append(cid, user)
             startRun(cid)
         }
@@ -98,28 +146,60 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun startRun(cid: String) {
         val working = ArrayList<AgentEvent>(events)
+        streamingText.value = ""
+        streamingReasoning.value = ""
         job = viewModelScope.launch {
+            var lastSave = 0L
             val system = systemPrompt()
-            controller.run(cid, system, working, object : AgentListener {
-                override fun onEvent(event: AgentEvent) {
-                    if (cid != conversationId.value) return
-                    if (event is AgentEvent.AssistantMessage) {
-                        streamingText.value = ""
-                        streamingReasoning.value = ""
+            val result = try {
+                controller.run(cid, system, working, object : AgentListener {
+                    override fun onEvent(event: AgentEvent) {
+                        if (cid != conversationId.value) return
+                        if (event is AgentEvent.AssistantMessage) {
+                            streamingText.value = ""
+                            streamingReasoning.value = ""
+                        }
+                        events += event
                     }
-                    events += event
-                }
 
-                override fun onStreaming(text: String, reasoning: String) {
-                    if (cid != conversationId.value) return
-                    streamingText.value = text
-                    streamingReasoning.value = reasoning
-                }
+                    override fun onStreaming(text: String, reasoning: String) {
+                        // Persist the partial reply about once a second so a killed process can show it as 已中断.
+                        val now = System.currentTimeMillis()
+                        if (now - lastSave > 1000) {
+                            lastSave = now
+                            viewModelScope.launch { h.conversations.savePending(cid, text, reasoning) }
+                        }
+                        if (cid != conversationId.value) return
+                        streamingText.value = text
+                        streamingReasoning.value = reasoning
+                    }
 
-                override fun onState(state: AgentState) {
-                    if (cid == conversationId.value) this@ChatViewModel.state.value = state
-                }
-            })
+                    override fun onState(state: AgentState) {
+                        if (cid == conversationId.value) this@ChatViewModel.state.value = state
+                    }
+                })
+            } finally {
+                withContext(NonCancellable) { h.conversations.clearPending(cid) }
+            }
+            if (result == AgentState.FINISHED) viewModelScope.launch { autoTitle(cid) }
+        }
+    }
+
+    /** After the first finished exchange, ask the model for a short title (unless the user already named it). */
+    private suspend fun autoTitle(cid: String) {
+        runCatching {
+            if (h.conversations.get(cid)?.titleState != TitleState.PROVISIONAL) return
+            val history = h.conversations.load(cid)
+            val user = history.filterIsInstance<AgentEvent.UserMessage>().firstOrNull() ?: return
+            val answer = history.filterIsInstance<AgentEvent.AssistantMessage>().firstOrNull { it.text.isNotBlank() && it.error == null } ?: return
+            val ep = withContext(Dispatchers.IO) { h.settings.activeEndpoint() }
+            val prompt = TitlePrompt.build(user.text.ifBlank { "（发了 ${user.images.size} 张图片）" }, answer.text)
+            val raw = withTimeoutOrNull(30_000) {
+                val sb = StringBuilder()
+                client.stream(ep, null, listOf(ChatTurn(Role.USER, prompt)), cid).collect { if (it is StreamEvent.Text) sb.append(it.delta) }
+                sb.toString()
+            } ?: return
+            TitlePrompt.clean(raw)?.let { h.conversations.setAutoTitle(cid, it) }
         }
     }
 
@@ -136,19 +216,53 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     fun isAwaiting(request: AgentEvent.ApprovalRequest) = h.approvals.isWaiting(request.requestId)
 
-    /** Drops everything after the last user message and runs it again. */
+    /** 重答 / 重试: drops everything after the last user message and runs it again (same context). */
     fun retryLast() {
-        if (running.value) stop()
         val idx = events.indexOfLast { it is AgentEvent.UserMessage }
         if (idx < 0) return
         val user = events[idx]
-        while (events.size > idx + 1) events.removeAt(events.lastIndex)
         val cid = conversationId.value
+        focusAt.value = null
         viewModelScope.launch {
+            job?.cancelAndJoin()
+            while (events.size > idx + 1) events.removeAt(events.lastIndex)
             h.conversations.deleteAfter(cid, user.at)
             startRun(cid)
         }
     }
+
+    /** 编辑后重发: loads the message into the composer; sending replaces it and the replies after it. */
+    fun beginEdit(user: AgentEvent.UserMessage) {
+        if (running.value) stop()
+        editingAt.value = user.at
+        draft.value = user.text
+        attachments.clear()
+        attachments.addAll(user.images)
+    }
+
+    fun cancelEdit() {
+        editingAt.value = null
+        draft.value = ""
+        attachments.clear()
+    }
+
+    fun addImage(uri: Uri, fromCamera: Boolean, onFail: (String) -> Unit) {
+        importing.value = true
+        viewModelScope.launch {
+            val ref = h.images.import(uri)
+            if (fromCamera) h.images.deleteCameraShot(uri)
+            importing.value = false
+            if (ref == null) onFail("没能读取这张图片") else if (attachments.size < MAX_IMAGES) attachments += ref else onFail("一次最多 $MAX_IMAGES 张图片")
+        }
+    }
+
+    fun removeImage(ref: String) {
+        attachments.remove(ref)
+    }
+
+    fun imageFile(ref: String) = h.images.file(ref)
+
+    fun newCameraUri(): Uri = h.images.newCameraUri()
 
     fun newConversation() {
         stop()
@@ -156,31 +270,67 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         streamingText.value = ""
         streamingReasoning.value = ""
         state.value = AgentState.IDLE
+        editingAt.value = null
+        focusAt.value = null
+        sendError.value = null
         conversationId.value = UUID.randomUUID().toString()
     }
 
-    fun open(id: String) {
-        if (running.value) stop()
+    /**
+     * Opens a conversation. A tail left unfinished by a killed process is closed with an "已中断" reply (carrying any
+     * streamed text) so it can be retried; [focus] is the `at` of a message to scroll to (search hit).
+     */
+    fun open(id: String, focus: Long? = null) {
+        if (id == conversationId.value && running.value) {
+            focusAt.value = focus
+            return
+        }
         viewModelScope.launch {
-            val loaded = h.conversations.load(id)
+            job?.cancelAndJoin()
+            job = null
+            val loaded = h.conversations.load(id).toMutableList()
+            Recovery.interruptedTail(loaded, h.conversations.pending(id))?.let { fix ->
+                h.conversations.append(id, fix)
+                loaded += fix
+            }
+            h.conversations.clearPending(id)
             conversationId.value = id
             events.clear()
             events.addAll(loaded)
             streamingText.value = ""
             streamingReasoning.value = ""
             state.value = AgentState.IDLE
+            editingAt.value = null
+            sendError.value = null
+            focusAt.value = focus
         }
     }
 
     fun delete(id: String) {
         viewModelScope.launch {
-            h.conversations.delete(id)
             if (id == conversationId.value) newConversation()
+            h.conversations.delete(id)
         }
     }
 
     fun rename(id: String, title: String) {
         viewModelScope.launch { h.conversations.rename(id, title) }
+    }
+
+    /** Debounced full-text search across all conversations. */
+    fun search(query: String) {
+        searchJob?.cancel()
+        if (query.isBlank()) {
+            searchHits.value = emptyList()
+            searching.value = false
+            return
+        }
+        searching.value = true
+        searchJob = viewModelScope.launch {
+            delay(250)
+            searchHits.value = h.conversations.search(query)
+            searching.value = false
+        }
     }
 
     private suspend fun systemPrompt(): String {
@@ -206,6 +356,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     companion object {
+        const val MAX_IMAGES = 4
+
         fun localTime(at: Long): LocalDateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(at), ZoneId.systemDefault())
     }
 }

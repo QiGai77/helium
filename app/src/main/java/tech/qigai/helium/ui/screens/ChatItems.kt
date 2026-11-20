@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -47,6 +48,7 @@ import tech.qigai.helium.agent.Risk
 import tech.qigai.helium.agent.ToolCall
 import tech.qigai.helium.agent.search.SearchFormat
 import tech.qigai.helium.data.db.ConversationEntity
+import tech.qigai.helium.data.db.MessageHit
 import tech.qigai.helium.data.llm.Role
 import tech.qigai.helium.ui.components.ButtonKind
 import tech.qigai.helium.ui.components.HePillButton
@@ -61,8 +63,16 @@ import java.time.format.DateTimeFormatter
 sealed interface ChatItem {
     val key: String
 
-    data class User(override val key: String, val text: String) : ChatItem
-    data class Assistant(override val key: String, val message: ChatMessage, val sources: List<Pair<String, String>> = emptyList()) : ChatItem
+    data class User(override val key: String, val event: AgentEvent.UserMessage) : ChatItem {
+        val text: String get() = event.text
+    }
+    data class Assistant(
+        override val key: String,
+        val message: ChatMessage,
+        val sources: List<Pair<String, String>> = emptyList(),
+        /** `at` of the underlying event (search focus). */
+        val at: Long = 0,
+    ) : ChatItem
     data class Step(override val key: String, val call: ToolCall?, val observation: AgentEvent.ToolObservation) : ChatItem
     data class Approval(override val key: String, val request: AgentEvent.ApprovalRequest, val decision: AgentEvent.ApprovalDecision?) : ChatItem
 }
@@ -75,14 +85,15 @@ fun chatItems(events: List<AgentEvent>): List<ChatItem> {
     val turnSources = LinkedHashMap<String, String>()
     events.forEachIndexed { i, e ->
         when (e) {
-            is AgentEvent.UserMessage -> { turnSources.clear(); out += ChatItem.User("u$i", e.text) }
+            is AgentEvent.UserMessage -> { turnSources.clear(); out += ChatItem.User("u$i", e) }
             is AgentEvent.AssistantMessage -> {
                 e.toolCalls.forEach { calls[it.id] = it }
-                if (e.text.isNotBlank() || e.reasoning.isNotBlank() || e.error != null || e.stopped) {
+                if (e.text.isNotBlank() || e.reasoning.isNotBlank() || e.error != null || e.stopped || e.interrupted) {
                     out += ChatItem.Assistant(
                         "a$i",
-                        ChatMessage(i.toLong(), Role.ASSISTANT, e.text, e.reasoning, false, e.error, e.stopped, e.model, ChatViewModel.localTime(e.at)),
+                        ChatMessage(i.toLong(), Role.ASSISTANT, e.text, e.reasoning, false, e.error, e.stopped, e.model, ChatViewModel.localTime(e.at), e.interrupted),
                         sources = if (e.toolCalls.isEmpty() && e.text.isNotBlank()) turnSources.map { (url, title) -> title to url }.take(8) else emptyList(),
+                        at = e.at,
                     )
                 }
             }
@@ -201,54 +212,123 @@ fun InlineApproval(item: ChatItem.Approval, awaiting: Boolean, onDecide: (Boolea
 
 private val LIST_TIME = DateTimeFormatter.ofPattern("M月d日 HH:mm")
 
+/**
+ * 对话列表: new, rename, delete, and full-text search across every conversation. A search hit opens its
+ * conversation scrolled to the message.
+ */
 @Composable
 fun HistoryDialog(
     conversations: List<ConversationEntity>,
     currentId: String,
+    hits: List<MessageHit>,
+    searching: Boolean,
+    onSearch: (String) -> Unit,
     onOpen: (String) -> Unit,
+    onOpenHit: (MessageHit) -> Unit,
+    onNew: () -> Unit,
+    onRename: (String, String) -> Unit,
     onDelete: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var confirm by remember { mutableStateOf<ConversationEntity?>(null) }
+    var renaming by remember { mutableStateOf<ConversationEntity?>(null) }
+    var query by remember { mutableStateOf("") }
     AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text("关闭") } },
-        title = { Text("历史对话") },
+        onDismissRequest = { onSearch(""); onDismiss() },
+        confirmButton = { TextButton(onClick = { onSearch(""); onDismiss() }) { Text("关闭") } },
+        dismissButton = { TextButton(onClick = onNew) { Text("＋ 新对话", color = HeColors.Accent) } },
+        title = { Text("对话") },
         text = {
-            if (conversations.isEmpty()) {
-                Text("还没有对话。", color = HeColors.Ink2)
-            } else {
-                LazyColumn(Modifier.heightIn(max = 420.dp)) {
-                    items(conversations, key = { it.id }) { c ->
-                        Row(
-                            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onOpen(c.id) }.padding(vertical = 10.dp, horizontal = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(
-                                    c.title, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                    fontWeight = if (c.id == currentId) FontWeight.Bold else FontWeight.Normal, color = HeColors.Ink,
-                                )
-                                Text(ChatViewModel.localTime(c.updatedAt).format(LIST_TIME), fontSize = 12.sp, color = HeColors.Ink3)
+            Column {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it; onSearch(it) },
+                    placeholder = { Text("搜索所有对话里的消息") },
+                    singleLine = true,
+                    leadingIcon = { Icon(HeIcons.Search, null, tint = HeColors.Ink3, modifier = Modifier.size(18.dp)) },
+                    trailingIcon = {
+                        if (query.isNotEmpty()) {
+                            Icon(HeIcons.Close, "清除", tint = HeColors.Ink3, modifier = Modifier.size(18.dp).clip(CircleShape).clickable { query = ""; onSearch("") })
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(8.dp))
+                when {
+                    query.isNotBlank() -> SearchHits(hits, searching, onOpenHit)
+                    conversations.isEmpty() -> Text("还没有对话。", color = HeColors.Ink2, modifier = Modifier.padding(vertical = 12.dp))
+                    else -> LazyColumn(Modifier.heightIn(max = 420.dp)) {
+                        items(conversations, key = { it.id }) { c ->
+                            Row(
+                                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onOpen(c.id) }.padding(vertical = 8.dp, horizontal = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        c.title, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                        fontWeight = if (c.id == currentId) FontWeight.Bold else FontWeight.Normal, color = HeColors.Ink,
+                                    )
+                                    Text(ChatViewModel.localTime(c.updatedAt).format(LIST_TIME), fontSize = 12.sp, color = HeColors.Ink3)
+                                }
+                                TextButton(onClick = { renaming = c }) { Text("重命名", color = HeColors.Ink2, fontSize = 13.sp) }
+                                TextButton(onClick = { confirm = c }) { Text("删除", color = HeColors.CoralInk, fontSize = 13.sp) }
                             }
-                            TextButton(onClick = { confirm = c }) { Text("删除", color = HeColors.CoralInk) }
                         }
                     }
                 }
             }
         },
     )
+    renaming?.let { c ->
+        var title by remember(c.id) { mutableStateOf(c.title) }
+        AlertDialog(
+            onDismissRequest = { renaming = null },
+            confirmButton = {
+                TextButton(onClick = { onRename(c.id, title); renaming = null }, enabled = title.isNotBlank()) { Text("保存") }
+            },
+            dismissButton = { TextButton(onClick = { renaming = null }) { Text("取消") } },
+            title = { Text("重命名对话") },
+            text = { OutlinedTextField(value = title, onValueChange = { title = it.take(40) }, singleLine = true, modifier = Modifier.fillMaxWidth()) },
+        )
+    }
     confirm?.let { c ->
         AlertDialog(
             onDismissRequest = { confirm = null },
             confirmButton = { TextButton(onClick = { onDelete(c.id); confirm = null }) { Text("删除", color = HeColors.CoralInk) } },
             dismissButton = { TextButton(onClick = { confirm = null }) { Text("取消") } },
             title = { Text("删除这个对话？") },
-            text = { Text("「${c.title}」和其中的所有步骤会被永久删除。") },
+            text = { Text("「${c.title}」和其中的所有消息、图片和步骤会被永久删除。") },
         )
     }
 }
 
+@Composable
+private fun SearchHits(hits: List<MessageHit>, searching: Boolean, onOpenHit: (MessageHit) -> Unit) {
+    if (hits.isEmpty()) {
+        Text(if (searching) "搜索中…" else "没有找到包含这个关键词的消息。", color = HeColors.Ink2, fontSize = 14.sp, modifier = Modifier.padding(vertical = 12.dp))
+        return
+    }
+    LazyColumn(Modifier.heightIn(max = 420.dp)) {
+        items(hits, key = { it.eventId }) { hit ->
+            Column(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onOpenHit(hit) }.padding(vertical = 8.dp, horizontal = 4.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        hit.conversationTitle, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = HeColors.Ink,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+                    )
+                    Text(ChatViewModel.localTime(hit.at).format(LIST_TIME), fontSize = 11.sp, color = HeColors.Ink3)
+                }
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    (if (hit.fromUser) "你：" else "Helium：") + hit.snippet,
+                    fontSize = 13.sp, lineHeight = 18.sp, color = HeColors.Ink2, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
 
 /** Citation chips under an answer that used web_search, in the spirit of chat-demo's source list. */
 @OptIn(ExperimentalLayoutApi::class)

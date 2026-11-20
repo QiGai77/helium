@@ -28,7 +28,6 @@ import androidx.compose.ui.unit.sp
 import tech.qigai.helium.data.model.HeroEvent
 import tech.qigai.helium.data.db.ApprovalEntity
 import tech.qigai.helium.ui.components.AgentOrb
-import tech.qigai.helium.ui.components.Composer
 import tech.qigai.helium.ui.components.Dot
 import tech.qigai.helium.ui.components.HeTag
 import tech.qigai.helium.ui.components.HeroSurface
@@ -44,9 +43,8 @@ import tech.qigai.helium.ui.theme.HeShapes
 /** 01 首页 — greeting + 现在最要紧 hero + 2 hints + agent orb + composer. */
 @Composable
 fun HomeScreen(
-    draft: String,
-    onDraftChange: (String) -> Unit,
-    onSend: () -> Unit,
+    /** The shared chat composer (attachments, voice, offline retry); see [ChatInputBar]. */
+    inputBar: @Composable (Modifier) -> Unit,
     agentRunning: Boolean,
     pending: List<ApprovalEntity>,
     lastConversation: String?,
@@ -88,15 +86,7 @@ fun HomeScreen(
             }
             Spacer(Modifier.height(24.dp))
         }
-        Composer(
-            value = draft,
-            onValueChange = onDraftChange,
-            onSend = onSend,
-            modifier = Modifier.padding(horizontal = 24.dp),
-            onAttach = { toast("附件即将支持") },
-            onSkills = { toast("技能面板即将支持") },
-            onMic = { toast("语音输入即将支持") },
-        )
+        inputBar(Modifier.padding(horizontal = 24.dp))
         Spacer(Modifier.height(12.dp))
     }
 }

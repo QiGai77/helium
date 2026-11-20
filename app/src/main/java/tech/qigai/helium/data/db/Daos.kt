@@ -20,8 +20,14 @@ interface ConversationDao {
     @Upsert
     suspend fun upsert(c: ConversationEntity)
 
-    @Query("UPDATE conversations SET title = :title WHERE id = :id")
-    suspend fun rename(id: String, title: String)
+    @Query("UPDATE conversations SET title = :title, titleState = :state WHERE id = :id")
+    suspend fun setTitle(id: String, title: String, state: Int)
+
+    @Query("UPDATE conversations SET updatedAt = :at WHERE id = :id")
+    suspend fun touch(id: String, at: Long)
+
+    @Query("SELECT COUNT(*) FROM conversations")
+    suspend fun count(): Int
 
     @Query("DELETE FROM conversations WHERE id = :id")
     suspend fun delete(id: String)
@@ -41,11 +47,46 @@ interface EventDao {
     @Query("DELETE FROM events WHERE conversationId = :conversationId AND at > :after")
     suspend fun deleteAfter(conversationId: String, after: Long)
 
+    @Query("DELETE FROM events WHERE conversationId = :conversationId AND at >= :from")
+    suspend fun deleteFrom(conversationId: String, from: Long)
+
     @Query("DELETE FROM events WHERE conversationId = :conversationId")
     suspend fun deleteConversation(conversationId: String)
 
-    @Query("SELECT DISTINCT conversationId FROM events WHERE kind = 'user' AND json LIKE '%' || :q || '%' ORDER BY id DESC LIMIT 50")
-    suspend fun searchConversations(q: String): List<String>
+    /** Full-text hits over user and assistant messages, newest first. [match] comes from FtsQuery.build. */
+    @Query(
+        """
+        SELECT e.id AS eventId, e.conversationId AS conversationId, e.kind AS kind, e.json AS json, e.at AS at, c.title AS title
+        FROM event_fts
+        JOIN events AS e ON e.id = event_fts.rowid
+        JOIN conversations AS c ON c.id = e.conversationId
+        WHERE event_fts MATCH :match
+        ORDER BY e.at DESC
+        LIMIT :limit
+        """,
+    )
+    suspend fun search(match: String, limit: Int): List<MessageHitRow>
+}
+
+data class MessageHitRow(
+    val eventId: Long,
+    val conversationId: String,
+    val kind: String,
+    val json: String,
+    val at: Long,
+    val title: String,
+)
+
+@Dao
+interface PendingReplyDao {
+    @Upsert
+    suspend fun upsert(p: PendingReplyEntity)
+
+    @Query("SELECT * FROM pending_replies WHERE conversationId = :conversationId")
+    suspend fun get(conversationId: String): PendingReplyEntity?
+
+    @Query("DELETE FROM pending_replies WHERE conversationId = :conversationId")
+    suspend fun delete(conversationId: String)
 }
 
 @Dao
