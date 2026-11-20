@@ -9,8 +9,13 @@
  *   GET  /health                      what is configured (no secrets)
  *   POST /v1/tools/search             DeepSeek Search API, same body and response as api.deepseek.com
  *   POST /v1/tools/fetch              DeepSeek Fetch API
+ *   GET  /v1/tools/feed?url=...       fetch one public feed/page URL (SSRF-guarded, see assertPublicUrl)
  *   POST /mcp/exa                     Exa's public MCP endpoint (JSON-RPC body passed through)
  *   ANY  /llm/<provider>/<path>       model APIs with the key injected: deepseek, opencode-go, gemini
+ *
+ * Request logging is count-only (method, path, status, duration — never body, query, headers, tokens
+ * or keys) and on by default; set REQUEST_LOG=0 to turn it off. The per-isolate limiter is a brake,
+ * not a global quota (see README).
  */
 
 export interface Env {
@@ -20,6 +25,8 @@ export interface Env {
   GEMINI_API_KEY?: string
   EXA_API_KEY?: string
   RATE_PER_MINUTE?: string
+  /** Count-only request log: "1" (default when unset) logs, "0" disables it. */
+  REQUEST_LOG?: string
 }
 
 export const VERSION = "0.1.0"
@@ -156,6 +163,61 @@ async function forward(req: Request, target: string, auth: (h: Headers) => void,
 }
 
 export async function handle(req: Request, env: Env, fetcher: typeof fetch = fetch): Promise<Response> {
+  const started = Date.now()
+  const res = await route(req, env, fetcher)
+  if (requestLogEnabled(env)) {
+    // Count-only: path without query, no headers/body/token/key anywhere in the line.
+    console.log(requestLogLine(req.method, new URL(req.url).pathname, res.status, Date.now() - started))
+  }
+  return res
+}
+
+/** Count-only request log, on by default; set REQUEST_LOG=0 to turn it off. */
+export function requestLogEnabled(env: Env): boolean {
+  return (env.REQUEST_LOG ?? "1").trim() !== "0"
+}
+
+/**
+ * One JSON log line per request: method, path, status, duration in ms. Nothing else — no query
+ * string (it can carry a target URL), no headers, no body, no device token, no provider key.
+ */
+export function requestLogLine(method: string, path: string, status: number, ms: number): string {
+  return JSON.stringify({ type: "helium_request", method, path, status, ms })
+}
+
+/**
+ * SSRF guard for user-supplied fetch targets. This is the same denylist as the Android custom-card
+ * check (CardDefinition.checkUrl in glance/Cards.kt) — one rule, two runtimes. It deliberately does
+ * not do DNS resolution: a hostname that resolves to a private address after the check is still
+ * possible, so treat fetched content as untrusted either way.
+ */
+export function isPrivateHost(host: string): boolean {
+  const h = host.toLowerCase()
+  return (
+    h === "localhost" ||
+    h.endsWith(".local") ||
+    h.startsWith("127.") ||
+    h.startsWith("10.") ||
+    h.startsWith("192.168.") ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(h) ||
+    h === "0.0.0.0"
+  )
+}
+
+/** Parses [raw] and rejects anything that isn't a public http(s) URL. Throws with a safe message. */
+export function assertPublicUrl(raw: string): URL {
+  let u: URL
+  try {
+    u = new URL(raw)
+  } catch {
+    throw new Error("invalid url")
+  }
+  if (u.protocol !== "http:" && u.protocol !== "https:") throw new Error("only http(s) urls are allowed")
+  if (isPrivateHost(u.hostname)) throw new Error("private hosts are not allowed")
+  return u
+}
+
+async function route(req: Request, env: Env, fetcher: typeof fetch = fetch): Promise<Response> {
   const url = new URL(req.url)
   const path = url.pathname.replace(/\/+$/, "") || "/"
 
@@ -182,8 +244,40 @@ export async function handle(req: Request, env: Env, fetcher: typeof fetch = fet
 
   if (path === "/mcp/exa") {
     if (req.method !== "POST") return error(405, "use POST")
-    const target = env.EXA_API_KEY ? `${EXA_MCP}?exaApiKey=${encodeURIComponent(env.EXA_API_KEY)}` : EXA_MCP
-    return forward(req, target, (h) => h.set("Accept", "application/json, text/event-stream"), fetcher)
+    // The key travels as an x-api-key header, never in the URL: query strings land in access logs
+    // on both sides. Exa's MCP server reads x-api-key first (then Authorization, then exaApiKey).
+    return forward(req, EXA_MCP, (h) => {
+      h.set("Accept", "application/json, text/event-stream")
+      if (env.EXA_API_KEY) h.set("x-api-key", env.EXA_API_KEY)
+    }, fetcher)
+  }
+
+  if (path === "/v1/tools/feed") {
+    if (req.method !== "GET") return error(405, "use GET")
+    const raw = url.searchParams.get("url")
+    if (!raw) return error(400, "missing ?url=")
+    let target: URL
+    try {
+      target = assertPublicUrl(raw)
+    } catch (e) {
+      return error(400, e instanceof Error ? e.message : "bad url", "bad_url")
+    }
+    try {
+      const up = await fetcher(target.toString(), {
+        headers: {
+          "User-Agent": "helium-cloud feed fetch",
+          Accept: "application/rss+xml, application/atom+xml, application/xml;q=0.9, text/html;q=0.8, */*;q=0.5",
+        },
+      })
+      const len = Number(up.headers.get("content-length") ?? "0")
+      if (len > MAX_BODY) return error(413, "feed too large")
+      const h = new Headers()
+      const ct = up.headers.get("content-type")
+      if (ct) h.set("content-type", ct)
+      return new Response(up.body, { status: up.status, headers: h })
+    } catch (e) {
+      return error(502, `feed unreachable: ${e instanceof Error ? e.message : String(e)}`, "upstream_error")
+    }
   }
 
   const m = path.match(/^\/llm\/([a-z0-9-]+)(\/.*)$/)

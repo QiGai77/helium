@@ -87,9 +87,25 @@ class GlanceRepository(
         get() = prefs.getBoolean("perms_asked", false)
         set(v) = prefs.edit().putBoolean("perms_asked", v).apply()
 
+    /**
+     * The X bridge in use: the user's own RSSHub/Nitter address, or the public RSSHub instance when
+     * nothing is stored. The stored value stays blank on default; the UI warning for that case comes
+     * from [XFeeds.bridgeNote], which recognises the default by address.
+     */
     var xBridge: String
-        get() = prefs.getString("x_bridge", "").orEmpty()
+        get() = XFeeds.effectiveBridge(prefs.getString("x_bridge", "").orEmpty())
         set(v) = prefs.edit().putString("x_bridge", v.trim()).apply()
+
+    /** True when no bridge of the user's own is stored (the public default is in use). */
+    val xBridgeIsDefault: Boolean
+        get() = prefs.getString("x_bridge", "").orEmpty().isBlank()
+
+    /** The user explicitly turned SMS trip detection on (a separate opt-in on top of the system permission). */
+    var smsTripsEnabled: Boolean
+        get() = prefs.getBoolean("sms_trips_enabled", false)
+        set(v) = prefs.edit().putBoolean("sms_trips_enabled", v).apply()
+
+    fun smsGranted() = SmsSource.granted(context)
 
     val manualPlace: Place?
         get() = prefs.getString("manual_city", null)?.let {
@@ -151,9 +167,8 @@ class GlanceRepository(
         val handle = XFeeds.handle(input)
         val resolved: Triple<String, String, ParsedFeed> // kind, url, feed
         if (handle != null) {
-            val bridge = xBridge
-            require(bridge.isNotBlank()) { "X 没有公开订阅源。先在下方填写你的 RSSHub 或 Nitter 地址，再添加 @$handle" }
-            val url = XFeeds.feedUrl(bridge, handle)
+            // No bridge is required any more: unset means the public RSSHub default (see XFeeds).
+            val url = XFeeds.feedUrl(xBridge, handle)
             val feed = parser.parse(fetch(url).first, url, now)
             resolved = Triple("X", url, feed.copy(title = "X · @$handle"))
         } else {
@@ -329,8 +344,35 @@ class GlanceRepository(
 
     // ------------------------------------------------------------------ hero
 
-    /** Home hero: the nearest real calendar event, else today's weather; null when neither is available. */
+    /**
+     * Home hero: the nearest real trip from SMS (opt-in + READ_SMS granted), else the nearest real
+     * calendar event, else today's weather; null when none is available. The tag always names the
+     * source ("短信行程" / "日程" / "天气") so the card never pretends one source is another.
+     */
     suspend fun hero(now: Long = System.currentTimeMillis()): HeroEvent? {
+        if (smsTripsEnabled && SmsSource.granted(context)) {
+            val trip = withContext(Dispatchers.IO) { SmsTripParser.pick(SmsSource.upcoming(context, now), now) }
+            if (trip != null) {
+                val zone = ZoneId.systemDefault()
+                val b = java.time.Instant.ofEpochMilli(trip.begin).atZone(zone)
+                val n = java.time.Instant.ofEpochMilli(now).atZone(zone)
+                val day = HeroFormat.dayWord(n, b)
+                val kind = if (trip.kind == SmsTrip.Kind.FLIGHT) IlloKind.FLIGHT else IlloKind.TRAIN
+                return HeroEvent(
+                    tag = "$day · 短信行程",
+                    title = trip.title,
+                    meta = listOfNotNull(
+                        "$day ${HeroFormat.period(b.hour)}",
+                        "%02d:%02d".format(b.hour, b.minute),
+                        trip.route,
+                        trip.sender?.let { "来自短信 $it" },
+                    ).joinToString(" · "),
+                    time = "%02d:%02d".format(b.hour, b.minute),
+                    route = if (trip.begin <= now) "进行中" else HeroFormat.countdown(trip.begin, now),
+                    kind = kind,
+                )
+            }
+        }
         val ev = withContext(Dispatchers.IO) { CalendarSource.pick(CalendarSource.upcoming(context, now), now) }
         if (ev != null) {
             val h = HeroFormat.event(ev.title, ev.begin, ev.end, ev.location, ev.allDay, now, ZoneId.systemDefault())

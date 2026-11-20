@@ -257,6 +257,38 @@ object Html {
 
 /** X (Twitter) has no public feed; the user supplies an RSSHub or Nitter instance and we build the per-account URL. */
 object XFeeds {
+    /** The official public RSSHub instance, used when the user has not filled in their own bridge. */
+    const val DEFAULT_RSS_HUB = "https://rsshub.app"
+
+    /**
+     * The bridge actually used: the user's own address, or the public default. Nitter instances are
+     * mostly dead (see [bridgeNote]); RSSHub is the only bridge that still works in practice.
+     */
+    fun effectiveBridge(stored: String): String {
+        val b = stored.trim().trimEnd('/')
+        return if (b.isEmpty()) DEFAULT_RSS_HUB else b
+    }
+
+    /** True when [stored] is blank, i.e. the caller is on the public default instance. */
+    fun isDefaultBridge(stored: String): Boolean = stored.trim().isEmpty()
+
+    /** True when the bridge looks like a Nitter instance (host contains "nitter"). */
+    fun isNitterBridge(bridge: String): Boolean = bridge.contains("nitter", ignoreCase = true)
+
+    /**
+     * Honest one-line warning for the bridge the user is about to use, or null when there is nothing
+     * to warn about (a self-hosted RSSHub address). [bridge] may be the stored value or the
+     * effective one — the public default is recognised by address, not by blankness.
+     */
+    fun bridgeNote(bridge: String): String? {
+        val b = effectiveBridge(bridge)
+        return when {
+            isNitterBridge(b) -> "Nitter 实例基本已死，大多返回 404 / 502；不要指望它能用，改用 RSSHub。"
+            b == DEFAULT_RSS_HUB -> "默认用公开实例 rsshub.app：不稳定、可能随时限流或失效，风险自担；长期用请自建 RSSHub。"
+            else -> null
+        }
+    }
+
     private val handleRe = Regex("^[A-Za-z0-9_]{1,15}$")
 
     /** "@sama", "sama", "https://x.com/sama/status/1" → "sama"; null when it isn't an X account. */

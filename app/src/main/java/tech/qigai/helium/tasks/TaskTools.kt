@@ -64,7 +64,7 @@ internal fun TaskInfo.line(zone: ZoneId, now: Long): String {
 }
 
 internal fun exactNote(svc: TaskService) =
-    if (svc.exactAlarms()) "" else "\n注意：Helium 还没有「闹钟和提醒」权限，触发时间可能有几分钟误差；可以在任务页顶部开启。"
+    if (svc.exactAlarms()) "" else "\n注意：${TaskScheduler.ExactAlarmNotice.MESSAGE}可以在任务页点横幅去开启。"
 
 class TaskCreateTool(private val svc: TaskService, private val zone: () -> ZoneId = { ZoneId.systemDefault() }, private val clock: () -> Long = System::currentTimeMillis) : Tool {
     override val spec = ToolSpec(

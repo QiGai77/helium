@@ -71,6 +71,7 @@ import tech.qigai.helium.glance.CardLine
 import tech.qigai.helium.glance.CardView
 import tech.qigai.helium.glance.GlanceRepository
 import tech.qigai.helium.glance.WeatherView
+import tech.qigai.helium.glance.XFeeds
 import tech.qigai.helium.glance.openInBrowser
 import tech.qigai.helium.ui.components.ButtonKind
 import tech.qigai.helium.ui.components.GlassIcon
@@ -260,7 +261,7 @@ private fun FeedList(
             Column(Modifier.padding(20.dp)) {
                 Text(if (hasSources) "这些来源还没有新条目" else "还没有订阅来源", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = HeColors.Ink)
                 Spacer(Modifier.height(4.dp))
-                Text("添加 RSS / Atom 地址、任意网页，或通过 RSSHub / Nitter 订阅 X 账号。", fontSize = 13.sp, color = HeColors.Ink2, lineHeight = 19.sp)
+                Text("添加 RSS / Atom 地址、任意网页，或通过 RSSHub 订阅 X 账号（X 没有官方源；公开实例不稳定，Nitter 基本已死）。", fontSize = 13.sp, color = HeColors.Ink2, lineHeight = 19.sp)
                 if (!hasSources) {
                     Spacer(Modifier.height(14.dp))
                     HePillButton("添加来源", onAdd, kind = ButtonKind.TONAL, icon = HeIcons.Plus, height = 40.dp)
@@ -345,13 +346,22 @@ private fun SourcesSheet(repo: GlanceRepository, sources: List<FeedSourceEntity>
         Spacer(Modifier.height(24.dp))
         Text("X 桥接", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = HeColors.Ink2)
         Spacer(Modifier.height(6.dp))
-        Text("X 没有公开订阅源。填你自己的 RSSHub（/twitter/user/<账号>）或 Nitter（/<账号>/rss）实例地址。", fontSize = 12.sp, color = HeColors.Ink3, lineHeight = 18.sp)
+        Text("X 没有官方订阅源。填你自己的 RSSHub 地址（/twitter/user/<账号>）；留空则用公开实例 rsshub.app。Nitter 实例基本已死，不要指望它能用。", fontSize = 12.sp, color = HeColors.Ink3, lineHeight = 18.sp)
+        XFeeds.bridgeNote(repo.xBridge)?.let { note ->
+            Spacer(Modifier.height(6.dp))
+            Text(note, fontSize = 12.sp, color = HeColors.AmberInk, lineHeight = 18.sp)
+        }
         Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(bridge, { bridge = it }, singleLine = true, modifier = Modifier.weight(1f), placeholder = { Text("https://rsshub.example.com") })
             Spacer(Modifier.width(8.dp))
-            HePillButton("保存", { repo.xBridge = bridge; toast(if (bridge.isBlank()) "已清除 X 桥接" else "已保存") }, kind = ButtonKind.TONAL, height = 48.dp)
+            HePillButton("保存", {
+                repo.xBridge = bridge
+                toast(if (bridge.isBlank()) "已用默认公开实例 rsshub.app（不稳定，风险自担）" else "已保存")
+            }, kind = ButtonKind.TONAL, height = 48.dp)
         }
+
+        SmsTripsSection(repo, toast)
 
         Spacer(Modifier.height(24.dp))
         Text("已添加 · ${sources.size}", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = HeColors.Ink2)
@@ -367,6 +377,46 @@ private fun SourcesSheet(repo: GlanceRepository, sources: List<FeedSourceEntity>
                 RoundIconButton(HeIcons.Close, { scope.launch { repo.removeSource(s.id) } }, contentDescription = "移除")
             }
             HorizontalDivider(color = HeColors.Hair)
+        }
+    }
+}
+
+/** 短信行程：首页英雄卡的航班/高铁来源。只读本机短信、本地解析、不上传；无权限或无行程短信时回落到日历/天气。 */
+@Composable
+private fun SmsTripsSection(repo: GlanceRepository, toast: (String) -> Unit) {
+    var smsOn by remember { mutableStateOf(repo.smsTripsEnabled) }
+    var smsGranted by remember { mutableStateOf(repo.smsGranted()) }
+    val smsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        smsGranted = repo.smsGranted()
+        if (ok) {
+            repo.smsTripsEnabled = true
+            smsOn = true
+            toast("已开启短信行程：首页将显示短信里的航班/高铁")
+        } else {
+            toast("没有短信权限，首页英雄卡只用日历/天气")
+        }
+    }
+    Spacer(Modifier.height(24.dp))
+    Text("短信行程", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = HeColors.Ink2)
+    Spacer(Modifier.height(6.dp))
+    Text("开启后，首页英雄卡会显示短信里的航班/高铁出发信息（来源会标为“短信行程”）。只读本机短信、本地解析、不上传；没有行程短信时回落到日历/天气。", fontSize = 12.sp, color = HeColors.Ink3, lineHeight = 18.sp)
+    Spacer(Modifier.height(8.dp))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            when {
+                !smsGranted -> "未授权：需要读取短信权限"
+                smsOn -> "已开启：正在用短信找最近的航班/高铁"
+                else -> "已授权，未开启"
+            },
+            fontSize = 12.sp, color = HeColors.Ink2, modifier = Modifier.weight(1f),
+        )
+        Spacer(Modifier.width(8.dp))
+        if (!smsGranted) {
+            HePillButton("开启短信行程", { smsLauncher.launch(Manifest.permission.READ_SMS) }, kind = ButtonKind.TONAL, height = 40.dp)
+        } else if (smsOn) {
+            HePillButton("关闭", { repo.smsTripsEnabled = false; smsOn = false }, kind = ButtonKind.TONAL, height = 40.dp)
+        } else {
+            HePillButton("开启", { repo.smsTripsEnabled = true; smsOn = true; toast("已开启短信行程") }, kind = ButtonKind.TONAL, height = 40.dp)
         }
     }
 }

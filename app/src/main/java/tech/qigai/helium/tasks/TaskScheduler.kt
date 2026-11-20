@@ -40,6 +40,19 @@ class TaskScheduler(private val context: Context) {
 
     fun exactAllowed(): Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || am?.canScheduleExactAlarms() == true
 
+    /**
+     * When exact alarms are not granted, the reminder may fire minutes late. This is the single
+     * source for that downgrade: the text the task screen banner and the agent tools show, and the
+     * condition under which they show it. The banner itself lives in TasksScreen (wired to
+     * [exactAllowed] in the nav host) with a button that opens the system "Alarms & reminders" page.
+     */
+    object ExactAlarmNotice {
+        const val MESSAGE = "精确闹钟未授权，提醒可能不准时（有几分钟误差）。请去系统设置开启「闹钟和提醒」权限。"
+        fun show(exactAllowed: Boolean, hasEnabledTask: Boolean): Boolean = !exactAllowed && hasEnabledTask
+        fun message(exactAllowed: Boolean, hasEnabledTask: Boolean): String? =
+            if (show(exactAllowed, hasEnabledTask)) MESSAGE else null
+    }
+
     private fun alarmIntent(taskId: String, at: Long, flags: Int): PendingIntent? {
         val i = Intent(context, TaskAlarmReceiver::class.java)
             .setAction(ACTION_ALARM)
@@ -49,14 +62,21 @@ class TaskScheduler(private val context: Context) {
         return PendingIntent.getBroadcast(context, 0, i, flags or PendingIntent.FLAG_IMMUTABLE)
     }
 
-    /** (Re)arms both triggers for [at]; replaces whatever was armed for this task before. */
-    fun arm(taskId: String, at: Long) {
-        val pi = alarmIntent(taskId, at, PendingIntent.FLAG_UPDATE_CURRENT) ?: return
+    /**
+     * (Re)arms both triggers for [at]; replaces whatever was armed for this task before.
+     * Returns true when the alarm is exact; false when exact alarms are not granted and the alarm
+     * degraded to an inexact one (the reminder may then fire minutes late — see [ExactAlarmNotice]).
+     */
+    fun arm(taskId: String, at: Long): Boolean {
+        val pi = alarmIntent(taskId, at, PendingIntent.FLAG_UPDATE_CURRENT) ?: return false
         val manager = am
+        var exact = false
         if (manager != null) {
             try {
-                if (exactAllowed()) manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
-                else manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
+                if (exactAllowed()) {
+                    manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
+                    exact = true
+                } else manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
             } catch (e: SecurityException) {
                 manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
             }
@@ -68,6 +88,7 @@ class TaskScheduler(private val context: Context) {
             .addTag("helium-task").addTag("task:$taskId")
             .build()
         wm.enqueueUniqueWork(backupName(taskId), ExistingWorkPolicy.REPLACE, backup)
+        return exact
     }
 
     /** Cancels the alarm, the backup and any pending retry. A run already in progress finishes. */

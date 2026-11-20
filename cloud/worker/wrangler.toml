@@ -12,3 +12,5 @@ compatibility_flags = ["nodejs_compat"]
 
 [vars]
 RATE_PER_MINUTE = "120"
+# Count-only request log (method/path/status/ms, no body/query/token/key). On by default; "0" disables it.
+REQUEST_LOG = "1"

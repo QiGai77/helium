@@ -66,6 +66,71 @@ test("exa MCP proxy passes the JSON-RPC body and SSE response through", async ()
   assert.equal(await r.text(), sse)
 })
 
+test("exa key goes in an x-api-key header, never in the URL", async () => {
+  const { f, seen } = fakeFetch()
+  const keyed: Env = { ...env, EXA_API_KEY: "sk-exa-secret" }
+  const r = await handle(req("/mcp/exa", { method: "POST", body: "{}" }), keyed, f)
+  assert.equal(r.status, 200)
+  assert.equal(seen[0].url, "https://mcp.exa.ai/mcp")
+  assert.ok(!seen[0].url.includes("sk-exa-secret") && !seen[0].url.includes("exaApiKey"))
+  assert.equal(seen[0].init.headers.get("x-api-key"), "sk-exa-secret")
+})
+
+test("feed route fetches a public URL and rejects private hosts (same denylist as Android cards)", async () => {
+  const rss = '<?xml version="1.0"?><rss version="2.0"><channel><title>T</title></channel></rss>'
+  const { f, seen } = fakeFetch(() => new Response(rss, { headers: { "content-type": "application/rss+xml" } }))
+  const ok = await handle(req("/v1/tools/feed?url=" + encodeURIComponent("https://example.com/feed.xml")), env, f)
+  assert.equal(ok.status, 200)
+  assert.equal(ok.headers.get("content-type"), "application/rss+xml")
+  assert.equal(await ok.text(), rss)
+  assert.equal(seen[0].url, "https://example.com/feed.xml")
+  assert.equal(seen.length, 1)
+
+  const bad = [
+    "http://localhost:8080/admin",
+    "http://127.0.0.1/feed",
+    "http://10.0.0.5/feed",
+    "http://192.168.1.1/feed",
+    "http://172.16.0.9/feed",
+    "http://172.31.255.1/feed",
+    "http://0.0.0.0/feed",
+    "http://printer.local/feed",
+    "ftp://example.com/feed",
+    "file:///etc/passwd",
+  ]
+  for (const u of bad) {
+    const r = await handle(req("/v1/tools/feed?url=" + encodeURIComponent(u)), env, f)
+    assert.equal(r.status, 400, u)
+  }
+  assert.equal(seen.length, 1) // none of the rejected URLs was ever fetched
+  assert.equal((await handle(req("/v1/tools/feed"), env, f)).status, 400)
+  assert.equal((await handle(req("/v1/tools/feed?url=" + encodeURIComponent("https://example.com/feed")), env, f)).status, 200)
+  assert.equal((await handle(req("/v1/tools/feed?url=" + encodeURIComponent("https://example.com/feed"), { method: "POST" }), env, f)).status, 405)
+  assert.equal((await handle(req("/v1/tools/feed?url=" + encodeURIComponent("https://example.com/feed"), {}, null), env, f)).status, 401)
+})
+
+test("request log is count-only and off when REQUEST_LOG=0", async () => {
+  const lines: string[] = []
+  const orig = console.log
+  console.log = (...a: unknown[]) => { lines.push(String(a[0])) }
+  try {
+    const { f } = fakeFetch()
+    await handle(req("/health", {}, null), env, f)
+    await handle(req("/v1/tools/search", { method: "POST", body: "{}" }, "dev-a"), { ...env, REQUEST_LOG: "0" }, f)
+    assert.equal(lines.length, 1)
+    const line = JSON.parse(lines[0])
+    assert.equal(line.type, "helium_request")
+    assert.equal(line.method, "GET")
+    assert.equal(line.path, "/health")
+    assert.equal(line.status, 200)
+    assert.equal(typeof line.ms, "number")
+    assert.ok(!lines[0].includes("dev-a") && !lines[0].includes("sk-"))
+    assert.deepEqual(Object.keys(line).sort(), ["method", "ms", "path", "status", "type"])
+  } finally {
+    console.log = orig
+  }
+})
+
 test("llm proxy injects provider keys and keeps path and query", async () => {
   const { f, seen } = fakeFetch()
   await handle(req("/llm/opencode-go/openai/v1/chat/completions?x=1", { method: "POST", body: "{}", headers: { "x-opencode-session": "s1" } }), env, f)
